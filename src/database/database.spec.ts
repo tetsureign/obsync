@@ -1,32 +1,20 @@
+import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
-import { DB } from './database.constants';
-import { databaseProvider } from './database.provider';
-import { drizzle } from 'drizzle-orm/libsql';
+import { Database } from './database';
 
-describe('databaseProvider', () => {
-  let db: typeof drizzle;
+describe('Database', () => {
+  let provider: Database;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        databaseProvider,
-        {
-          provide: ConfigService,
-          useValue: {
-            getOrThrow: (key: string) => {
-              if (key === 'DB_FILE_NAME') return 'file:test.db';
-              throw new Error(`Missing config: ${key}`);
-            },
-          },
-        },
-      ],
+      imports: [ConfigModule.forRoot({ isGlobal: true })],
+      providers: [Database],
     }).compile();
 
-    db = module.get<typeof drizzle>(DB);
+    provider = module.get<Database>(Database);
   });
 
   it('should be defined', () => {
-    expect(db).toBeDefined();
+    expect(provider).toBeDefined();
   });
 });
