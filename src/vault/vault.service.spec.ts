@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { VaultService } from './vault.service';
 import { Database } from '../database/database';
-import { vaults } from '../../drizzle/schema';
+import { vaults } from '../drizzle/schema';
 
 describe('VaultService', () => {
   let service: VaultService;
