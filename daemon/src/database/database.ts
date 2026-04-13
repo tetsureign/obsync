@@ -11,6 +11,7 @@ export class Database {
 
     this.db = drizzle({
       connection: { url },
+      casing: 'snake_case',
     });
   }
 }
