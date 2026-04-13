@@ -1,6 +1,6 @@
-import { Database } from '@/database/database';
+import { Database } from '../database/database';
 import { Injectable } from '@nestjs/common';
-import { vaults } from '$/drizzle/schema';
+import { vaults } from '../../drizzle/schema';
 
 @Injectable()
 export class VaultService {
