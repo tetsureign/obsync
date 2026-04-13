@@ -16,7 +16,6 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "baseUrl": "./",
     "types": ["node", "vitest/globals"],
     "incremental": true,
     "skipLibCheck": true,

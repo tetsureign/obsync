@@ -6,7 +6,8 @@
     "deleteOutDir": true,
     "typeCheck": true,
     "builder": {
-      "type": "swc"
+      "type": "swc",
+      "options": { "swcrcPath": ".swcrc" }
     }
   }
 }
