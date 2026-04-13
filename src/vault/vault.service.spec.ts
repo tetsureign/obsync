@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { vi } from 'vitest';
 import { VaultService } from './vault.service';
-import { Database } from '../database/database';
-import { vaults } from '../drizzle/schema';
+import { Database } from '@/database/database';
+import { vaults } from '@/drizzle/schema';
 
 describe('VaultService', () => {
   let service: VaultService;
@@ -14,7 +15,7 @@ describe('VaultService', () => {
           provide: Database,
           useValue: {
             db: {
-              insert: jest.fn().mockReturnValue({ values: jest.fn() }),
+              insert: vi.fn().mockReturnValue({ values: vi.fn() }),
             },
           },
         },
