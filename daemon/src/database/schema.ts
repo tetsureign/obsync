@@ -8,7 +8,7 @@ const timestamps = {
   createdAt: t
     .integer({ mode: 'timestamp' })
     .notNull()
-    .default(sql`(unixepoch())`),
+    .default(sql<number>`(unixepoch())`),
 };
 
 export const vaults = sqliteTable('vaults', {
