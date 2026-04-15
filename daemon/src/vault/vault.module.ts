@@ -5,6 +5,8 @@ import { CreateVaultHandler } from './commands/create-vault.command';
 import { VaultRepository } from './vault.repository';
 import { UpdateVaultHandler } from './commands/update-vault.command';
 import { DeleteVaultHandler } from './commands/delete-vault.command';
+import { GetVaultHandler } from './queries/get-vault.query';
+import { ListVaultsHandler } from './queries/list-vaults.query';
 
 @Module({
   imports: [DatabaseModule],
@@ -14,6 +16,8 @@ import { DeleteVaultHandler } from './commands/delete-vault.command';
     CreateVaultHandler,
     UpdateVaultHandler,
     DeleteVaultHandler,
+    GetVaultHandler,
+    ListVaultsHandler,
   ],
 })
 export class VaultModule {}
