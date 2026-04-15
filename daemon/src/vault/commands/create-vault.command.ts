@@ -1,16 +1,13 @@
-import { Command } from '@nestjs/cqrs';
-import { NewVault } from '@/vault/vault.types';
+import { VaultPayload } from '../vault.types';
 
-export class CreateVaultCommand extends Command<NewVault> {
+export class CreateVaultCommand {
   constructor(
-    public readonly name: string,
-    public readonly localPath: string,
-    public readonly remote: string,
-    public readonly branch: string = 'main',
-    public readonly autoSync: boolean = false,
-    public readonly syncInterval: number = 5 * 60, // in seconds
-    public readonly conflictStrategy: string = 'log-and-skip',
-  ) {
-    super();
-  }
+    public readonly name: VaultPayload['name'],
+    public readonly localPath: VaultPayload['localPath'],
+    public readonly remote: VaultPayload['remote'],
+    public readonly branch: VaultPayload['branch'] = 'main',
+    public readonly autoSync: VaultPayload['autoSync'] = false,
+    public readonly syncInterval: VaultPayload['syncInterval'] = 5 * 60,
+    public readonly conflictStrategy: VaultPayload['conflictStrategy'] = 'log-and-skip',
+  ) {}
 }

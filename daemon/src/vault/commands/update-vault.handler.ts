@@ -1,13 +1,13 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { CreateVaultCommand } from './create-vault.command';
+import { UpdateVaultCommand } from './update-vault.command';
 import { VaultRepository } from '../vault.repository';
 
-@CommandHandler(CreateVaultCommand)
-export class CreateVaultHandler implements ICommandHandler<CreateVaultCommand> {
+@CommandHandler(UpdateVaultCommand)
+export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
   constructor(private repository: VaultRepository) {}
 
-  async execute(command: CreateVaultCommand) {
-    const newVault = await this.repository.create({
+  async execute(command: UpdateVaultCommand) {
+    const updatedVault = await this.repository.updateById(command.id, {
       name: command.name,
       localPath: command.localPath,
       remote: command.remote,
@@ -16,6 +16,6 @@ export class CreateVaultHandler implements ICommandHandler<CreateVaultCommand> {
       syncInterval: command.syncInterval,
       conflictStrategy: command.conflictStrategy,
     });
-    return newVault;
+    return updatedVault;
   }
 }
