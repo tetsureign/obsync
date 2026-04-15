@@ -12,7 +12,10 @@ const timestamps = {
 };
 
 export const vaults = sqliteTable('vaults', {
-  id: t.text().primaryKey(),
+  id: t
+    .text()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   name: t.text().notNull().unique(), // Unique because the cli might be confused by multiple vaults with the same name
   localPath: t.text().notNull().unique(),
   remote: t.text().notNull(),
