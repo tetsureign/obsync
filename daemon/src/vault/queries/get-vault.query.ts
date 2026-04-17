@@ -1,5 +1,6 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { VaultRepository } from '../vault.repository';
+import { NotFoundException } from '@nestjs/common';
 
 export class GetVaultQuery {
   constructor(public readonly id: string) {}
@@ -12,7 +13,7 @@ export class GetVaultHandler implements IQueryHandler<GetVaultQuery> {
   async execute(query: GetVaultQuery) {
     const vault = await this.vaultRepository.findById(query.id);
     if (!vault) {
-      throw new Error('Vault not found');
+      throw new NotFoundException('Vault not found');
     }
     return vault;
   }
