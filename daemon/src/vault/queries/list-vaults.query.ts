@@ -10,6 +10,7 @@ export class ListVaultsHandler implements IQueryHandler<ListVaultsQuery> {
   constructor(private readonly vaultRepository: VaultRepository) {}
 
   async execute() {
-    return await this.vaultRepository.findAll();
+    const vaults = await this.vaultRepository.findAll();
+    return vaults;
   }
 }

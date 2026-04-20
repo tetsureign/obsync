@@ -1,6 +1,9 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { VaultRepository } from '../vault.repository';
 import { UpdateVaultPayload } from '../vault.types';
+import { LibsqlError } from '@libsql/client';
+import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
+import { VaultNotFoundError } from '../errors/vault-not-found.error';
 
 export class UpdateVaultCommand {
   constructor(
@@ -19,15 +22,28 @@ export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
   constructor(private repository: VaultRepository) {}
 
   async execute(command: UpdateVaultCommand) {
-    const updatedVault = await this.repository.updateById(command.id, {
-      name: command.name,
-      localPath: command.localPath,
-      remote: command.remote,
-      branch: command.branch,
-      autoSync: command.autoSync,
-      syncInterval: command.syncInterval,
-      conflictStrategy: command.conflictStrategy,
-    });
-    return updatedVault;
+    try {
+      const updatedVault = await this.repository.updateById(command.id, {
+        name: command.name,
+        localPath: command.localPath,
+        remote: command.remote,
+        branch: command.branch,
+        autoSync: command.autoSync,
+        syncInterval: command.syncInterval,
+        conflictStrategy: command.conflictStrategy,
+      });
+
+      if (!updatedVault) throw new VaultNotFoundError(command.id);
+
+      return updatedVault;
+    } catch (error) {
+      if (error instanceof LibsqlError) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+          throw new VaultAlreadyExistsError(command.name ?? '');
+        }
+      }
+
+      throw error;
+    }
   }
 }

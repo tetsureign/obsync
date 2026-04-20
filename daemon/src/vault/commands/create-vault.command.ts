@@ -1,6 +1,8 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { VaultRepository } from '../vault.repository';
 import { VaultPayload } from '../vault.types';
+import { LibsqlError } from '@libsql/client';
+import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
 
 export class CreateVaultCommand {
   constructor(
@@ -18,15 +20,26 @@ export class CreateVaultHandler implements ICommandHandler<CreateVaultCommand> {
   constructor(private repository: VaultRepository) {}
 
   async execute(command: CreateVaultCommand) {
-    const newVault = await this.repository.create({
-      name: command.name,
-      localPath: command.localPath,
-      remote: command.remote,
-      branch: command.branch,
-      autoSync: command.autoSync,
-      syncInterval: command.syncInterval,
-      conflictStrategy: command.conflictStrategy,
-    });
-    return newVault;
+    try {
+      const newVault = await this.repository.create({
+        name: command.name,
+        localPath: command.localPath,
+        remote: command.remote,
+        branch: command.branch,
+        autoSync: command.autoSync,
+        syncInterval: command.syncInterval,
+        conflictStrategy: command.conflictStrategy,
+      });
+
+      return newVault;
+    } catch (error) {
+      if (error instanceof LibsqlError) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+          throw new VaultAlreadyExistsError(command.name);
+        }
+      }
+
+      throw error;
+    }
   }
 }
