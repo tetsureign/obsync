@@ -1,9 +1,8 @@
+import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
-import { AppExceptionFilter } from './common/filters/app-exception.filter';
-// import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,24 +14,17 @@ async function bootstrap() {
   // Dev-only Setups
   if (nodeEnv !== 'production') {
     // Swagger UI Setup
-    const config = new DocumentBuilder()
-      .setTitle('obsync daemon')
-      .setDescription('Go nuts')
-      .setVersion('1.0')
-      .build();
-    const documentFactory = () => SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, documentFactory);
-  }
+    const openApiDoc = SwaggerModule.createDocument(
+      app,
+      new DocumentBuilder()
+        .setTitle('obsync daemon')
+        .setDescription('Go nuts')
+        .setVersion('1.0')
+        .build(),
+    );
 
-  // Global Setups
-  app.useGlobalFilters(new AppExceptionFilter());
-  // app.useGlobalPipes(
-  //   new ValidationPipe({
-  //     whitelist: true,
-  //     forbidNonWhitelisted: true,
-  //     transform: true,
-  //   }),
-  // );
+    SwaggerModule.setup('api', app, cleanupOpenApiDoc(openApiDoc));
+  }
 
   await app.listen(port);
 }

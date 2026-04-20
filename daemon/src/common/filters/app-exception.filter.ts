@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AppError } from '../errors/app.error';
+import { ZodSerializationException } from 'nestjs-zod';
+import { ZodError } from 'zod';
 
 @Catch()
 export class AppExceptionFilter implements ExceptionFilter {
@@ -27,6 +29,14 @@ export class AppExceptionFilter implements ExceptionFilter {
     }
 
     if (exception instanceof HttpException) {
+      if (exception instanceof ZodSerializationException) {
+        const zodError = exception.getZodError();
+
+        if (zodError instanceof ZodError) {
+          this.logger.error(`ZodSerializationException: ${zodError.message}`);
+        }
+      }
+
       const status = exception.getStatus();
       return response.status(status).json(exception.getResponse());
     }
