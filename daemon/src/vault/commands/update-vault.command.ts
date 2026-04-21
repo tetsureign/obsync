@@ -4,6 +4,8 @@ import { UpdateVaultPayload } from '../vault.types';
 import { LibsqlError } from '@libsql/client';
 import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
 import { VaultNotFoundError } from '../errors/vault-not-found.error';
+import { createUpdateSchema } from 'drizzle-orm/zod';
+import { vaults } from '@/database/schema';
 
 export class UpdateVaultCommand {
   constructor(
@@ -23,7 +25,9 @@ export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
 
   async execute(command: UpdateVaultCommand) {
     try {
-      const updatedVault = await this.repository.updateById(command.id, {
+      const vaultUpdateSchema = createUpdateSchema(vaults);
+
+      const parsedData = vaultUpdateSchema.parse({
         name: command.name,
         localPath: command.localPath,
         remote: command.remote,
@@ -32,6 +36,11 @@ export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
         syncInterval: command.syncInterval,
         conflictStrategy: command.conflictStrategy,
       });
+
+      const updatedVault = await this.repository.updateById(
+        command.id,
+        parsedData,
+      );
 
       if (!updatedVault) throw new VaultNotFoundError(command.id);
 
