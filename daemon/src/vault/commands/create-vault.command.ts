@@ -3,8 +3,6 @@ import { VaultRepository } from '../vault.repository';
 import { VaultPayload } from '../vault.types';
 import { LibsqlError } from '@libsql/client';
 import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
-import { createInsertSchema } from 'drizzle-orm/zod';
-import { vaults } from '@/database/schema';
 export class CreateVaultCommand {
   constructor(
     public readonly name: VaultPayload['name'],
@@ -22,9 +20,7 @@ export class CreateVaultHandler implements ICommandHandler<CreateVaultCommand> {
 
   async execute(command: CreateVaultCommand) {
     try {
-      const vaultCreateSchema = createInsertSchema(vaults);
-
-      const parsedData = vaultCreateSchema.parse({
+      const newVault = await this.repository.create({
         name: command.name,
         localPath: command.localPath,
         remote: command.remote,
@@ -33,8 +29,6 @@ export class CreateVaultHandler implements ICommandHandler<CreateVaultCommand> {
         syncInterval: command.syncInterval,
         conflictStrategy: command.conflictStrategy,
       });
-
-      const newVault = await this.repository.create(parsedData);
 
       return newVault;
     } catch (error) {
