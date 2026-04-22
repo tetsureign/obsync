@@ -33,7 +33,11 @@ export class AppExceptionFilter implements ExceptionFilter {
         const zodError = exception.getZodError();
 
         if (zodError instanceof ZodError) {
-          this.logger.error(`ZodSerializationException: ${zodError.message}`);
+          this.logger.error(`ZodSerializationException: ${zodError.message}`, {
+            exception,
+            method: request.method,
+            path: request.url,
+          });
         }
       }
 

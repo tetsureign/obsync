@@ -36,11 +36,11 @@ export class VaultRepository {
   }
 
   async delete(id: string) {
-    return await this.database.db
+    const result = await this.database.db
       .delete(vaults)
       .where(eq(vaults.id, id))
-      .limit(1)
-      .returning()
-      .get();
+      .run();
+
+    return result.rowsAffected > 0;
   }
 }

@@ -24,6 +24,8 @@ export const createVaultSchema = vaultCoreSchema.extend({
     vaultCoreSchema.shape.conflictStrategy.default('log-and-skip'),
 });
 
+export const updateVaultSchema = vaultCoreSchema.partial();
+
 export const vaultResponseSchema = vaultCoreSchema.extend({
   id: z.string(),
   isDirty: z.boolean(),
