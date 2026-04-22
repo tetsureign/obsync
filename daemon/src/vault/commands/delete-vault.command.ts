@@ -3,6 +3,7 @@ import { VaultRepository } from '../vault.repository';
 import { LibsqlError } from '@libsql/client';
 import { VaultIsStillReferencedError } from '../errors/vault-still-referenced.error';
 import { VaultNotFoundError } from '../errors/vault-not-found.error';
+import { DrizzleQueryError } from 'drizzle-orm';
 
 export class DeleteVaultCommand {
   constructor(public readonly vaultId: string) {}
@@ -19,8 +20,13 @@ export class DeleteVaultHandler implements ICommandHandler<DeleteVaultCommand> {
 
       return deletedVault;
     } catch (error) {
-      if (error instanceof LibsqlError) {
-        if (error.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      if (error instanceof DrizzleQueryError) {
+        const cause = error.cause;
+
+        if (
+          cause instanceof LibsqlError &&
+          cause.extendedCode === 'SQLITE_CONSTRAINT_FOREIGNKEY'
+        ) {
           throw new VaultIsStillReferencedError(command.vaultId);
         }
       }

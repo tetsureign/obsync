@@ -4,6 +4,7 @@ import { UpdateVaultPayload } from '../vault.types';
 import { LibsqlError } from '@libsql/client';
 import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
 import { VaultNotFoundError } from '../errors/vault-not-found.error';
+import { DrizzleQueryError } from 'drizzle-orm';
 
 export class UpdateVaultCommand {
   constructor(
@@ -37,8 +38,13 @@ export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
 
       return updatedVault;
     } catch (error) {
-      if (error instanceof LibsqlError) {
-        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (error instanceof DrizzleQueryError) {
+        const cause = error.cause;
+
+        if (
+          cause instanceof LibsqlError &&
+          cause.extendedCode === 'SQLITE_CONSTRAINT_UNIQUE'
+        ) {
           throw new VaultAlreadyExistsError(command.name ?? '');
         }
       }
