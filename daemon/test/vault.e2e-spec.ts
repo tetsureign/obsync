@@ -1,21 +1,25 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { AppModule } from '@/app.module';
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { createE2eApp } from './helpers/test-app';
 
 describe('Vault API', () => {
   let app: INestApplication<App>;
+  let resetDb: () => Promise<void>;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    ({ app, resetDb, cleanup } = await createE2eApp());
+  });
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+    await resetDb();
+  });
 
-    app = module.createNestApplication();
-    await app.init();
+  afterAll(async () => {
+    await cleanup();
   });
 
   it('should create a vault', async () => {
