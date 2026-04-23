@@ -12,8 +12,8 @@ import { AppExceptionFilter } from './common/filters/app-exception.filter';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    DatabaseModule,
     CqrsModule.forRoot(),
+    DatabaseModule,
     VaultModule,
   ],
   controllers: [],
