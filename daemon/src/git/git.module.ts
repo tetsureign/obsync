@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { GitAdapter } from './git.adapter';
+import { GitService } from './git.service';
 
 @Module({
-  providers: [GitAdapter],
-  exports: [GitAdapter],
+  providers: [GitService],
+  exports: [GitService],
 })
 export class GitModule {}

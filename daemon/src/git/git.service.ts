@@ -8,7 +8,7 @@ import { NetworkError } from './errors/network.error';
 import { GitOperationError } from './errors/git-operation.error';
 
 @Injectable()
-export class GitAdapter {
+export class GitService {
   private readonly conflictErrorString = 'CONFLICT';
   private readonly authenticationErrorString = 'Authentication failed';
   private readonly networkErrorString = 'Could not resolve host';

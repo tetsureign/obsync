@@ -2,7 +2,7 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { SyncRecordPayload } from '../sync.types';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
-import { GitAdapter } from '@/git/git.adapter';
+import { GitService } from '@/git/git.service';
 
 export class PullVaultCommand {
   constructor(public readonly vaultId: SyncRecordPayload['vaultId']) {}
@@ -12,7 +12,7 @@ export class PullVaultCommand {
 export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
   constructor(
     private vaultRepository: VaultRepository,
-    private gitAdapter: GitAdapter,
+    private gitAdapter: GitService,
   ) {}
 
   async execute(command: PullVaultCommand) {
