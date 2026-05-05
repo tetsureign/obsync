@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ListVaultsQuery } from './queries/list-vaults.query';
@@ -19,6 +20,8 @@ import { GetVaultParamsDto } from './dto/get-vault-params.dto';
 import { UpdateVaultCommand } from './commands/update-vault.command';
 import { UpdateVaultDto } from './dto/update-vault.dto';
 import { DeleteVaultCommand } from './commands/delete-vault.command';
+import { GetVaultByPathQuery } from './queries/get-vault-by-path.query';
+import { GetVaultByPathQueryDto } from './dto/get-vault-by-path-query.dto';
 
 @Controller('vaults')
 export class VaultController {
@@ -49,6 +52,14 @@ export class VaultController {
         createVaultDto.conflictStrategy,
       ),
     );
+  }
+
+  @Get('by-path')
+  @ZodSerializerDto(VaultResponseDto)
+  async getVaultByPath(
+    @Query() query: GetVaultByPathQueryDto,
+  ): Promise<VaultResponseDto> {
+    return this.queryBus.execute(new GetVaultByPathQuery(query.localPath));
   }
 
   @Get(':id')

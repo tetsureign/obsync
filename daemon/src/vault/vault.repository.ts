@@ -22,6 +22,15 @@ export class VaultRepository {
       .get();
   }
 
+  async findByPath(path: string) {
+    return await this.database.db
+      .select()
+      .from(vaults)
+      .where(eq(vaults.localPath, path))
+      .limit(1)
+      .get();
+  }
+
   async create(data: NewVault) {
     return await this.database.db.insert(vaults).values(data).returning().get();
   }
