@@ -1,0 +1,32 @@
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { SyncRecordPayload } from '../sync.types';
+import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
+import { VaultRepository } from '@/vault/vault.repository';
+import { GitAdapter } from '@/git/git.adapter';
+
+export class PullVaultCommand {
+  constructor(public readonly vaultId: SyncRecordPayload['vaultId']) {}
+}
+
+@CommandHandler(PullVaultCommand)
+export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
+  constructor(
+    private vaultRepository: VaultRepository,
+    private gitAdapter: GitAdapter,
+  ) {}
+
+  async execute(command: PullVaultCommand) {
+    const vaultInfo = await this.vaultRepository.findById(command.vaultId);
+
+    if (!vaultInfo) {
+      throw new VaultNotFoundError(command.vaultId);
+    }
+
+    await this.gitAdapter.assertValidVault(
+      vaultInfo.localPath,
+      vaultInfo.remote,
+    );
+
+    await this.gitAdapter.pull(vaultInfo.localPath);
+  }
+}

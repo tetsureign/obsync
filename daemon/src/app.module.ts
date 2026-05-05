@@ -6,6 +6,8 @@ import { DatabaseModule } from './database/database.module';
 import { VaultModule } from './vault/vault.module';
 import { CqrsModule } from '@nestjs/cqrs';
 import { AppExceptionFilter } from './common/filters/app-exception.filter';
+import { SyncModule } from './sync/sync.module';
+import { GitModule } from './git/git.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { AppExceptionFilter } from './common/filters/app-exception.filter';
     CqrsModule.forRoot(),
     DatabaseModule,
     VaultModule,
+    SyncModule,
+    GitModule,
   ],
   controllers: [],
   providers: [
