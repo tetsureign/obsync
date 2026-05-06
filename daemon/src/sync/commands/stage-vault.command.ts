@@ -4,21 +4,21 @@ import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
 
-export class GitCommitCommand {
+export class StageVaultCommand {
   constructor(
     public readonly vaultId: SyncRecordPayload['vaultId'],
-    public readonly commitMessage: string = `auto commit at ${new Date().toISOString()}`,
+    public readonly filePaths: string[],
   ) {}
 }
 
-@CommandHandler(GitCommitCommand)
-export class GitCommitHandler implements ICommandHandler<GitCommitCommand> {
+@CommandHandler(StageVaultCommand)
+export class StageVaultHandler implements ICommandHandler<StageVaultCommand> {
   constructor(
     private vaultRepository: VaultRepository,
     private gitService: GitService,
   ) {}
 
-  async execute(command: GitCommitCommand) {
+  async execute(command: StageVaultCommand) {
     const vaultInfo = await this.vaultRepository.findById(command.vaultId);
 
     if (!vaultInfo) {
@@ -30,6 +30,6 @@ export class GitCommitHandler implements ICommandHandler<GitCommitCommand> {
       vaultInfo.remote,
     );
 
-    await this.gitService.commit(vaultInfo.localPath, command.commitMessage);
+    await this.gitService.stage(vaultInfo.localPath, command.filePaths);
   }
 }

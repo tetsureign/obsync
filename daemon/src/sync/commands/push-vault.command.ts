@@ -4,18 +4,18 @@ import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
 
-export class GitPullCommand {
+export class PushVaultCommand {
   constructor(public readonly vaultId: SyncRecordPayload['vaultId']) {}
 }
 
-@CommandHandler(GitPullCommand)
-export class GitPullHandler implements ICommandHandler<GitPullCommand> {
+@CommandHandler(PushVaultCommand)
+export class PushVaultHandler implements ICommandHandler<PushVaultCommand> {
   constructor(
     private vaultRepository: VaultRepository,
     private gitService: GitService,
   ) {}
 
-  async execute(command: GitPullCommand) {
+  async execute(command: PushVaultCommand) {
     const vaultInfo = await this.vaultRepository.findById(command.vaultId);
 
     if (!vaultInfo) {
@@ -27,6 +27,6 @@ export class GitPullHandler implements ICommandHandler<GitPullCommand> {
       vaultInfo.remote,
     );
 
-    await this.gitService.pull(vaultInfo.localPath);
+    await this.gitService.push(vaultInfo.localPath);
   }
 }
