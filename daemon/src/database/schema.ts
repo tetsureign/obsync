@@ -28,7 +28,7 @@ export const vaults = sqliteTable('vaults', {
     .integer()
     .notNull()
     .default(5 * 60), // in seconds
-  conflictStrategy: t.text().notNull().default('log-and-skip'),
+  conflictStrategy: t.text().notNull().default('log-and-skip'), // 'log-and-skip' | 'stash-and-retry'
   lastSyncedAt: t.integer({ mode: 'timestamp' }),
   ...timestamps,
 });
@@ -52,7 +52,7 @@ export const conflictRecords = sqliteTable('conflict_records', {
     .notNull()
     .references(() => vaults.id, { onDelete: 'cascade' }),
   files: t.text().notNull(), // JSON array of file paths that are in conflict
-  strategy: t.text().notNull(), // 'log-and-skip' | 'force-local' | 'force-remote'
+  strategy: t.text().notNull(),
   resolved: t.integer({ mode: 'boolean' }).notNull().default(false),
   ...timestamps,
 });

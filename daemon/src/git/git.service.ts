@@ -65,6 +65,18 @@ export class GitService {
     });
   }
 
+  async stash(localPath: string) {
+    await this.runGitOperation(localPath, 'stash', async (git) => {
+      await git.stash();
+    });
+  }
+
+  async stashPop(localPath: string) {
+    await this.runGitOperation(localPath, 'stash-pop', async (git) => {
+      await git.stash(['pop']);
+    });
+  }
+
   private async runGitOperation<T>(
     localPath: string,
     operationName: string,
