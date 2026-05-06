@@ -7,7 +7,7 @@ import { GitService } from '@/git/git.service';
 export class StageVaultCommand {
   constructor(
     public readonly vaultId: SyncRecordPayload['vaultId'],
-    public readonly filePaths: string[],
+    public readonly filePaths: string[] = ['.'], // Defaults to staging all changes
   ) {}
 }
 
