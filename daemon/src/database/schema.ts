@@ -34,7 +34,10 @@ export const vaults = sqliteTable('vaults', {
 });
 
 export const syncRecords = sqliteTable('sync_records', {
-  id: t.text().primaryKey(),
+  id: t
+    .text()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   vaultId: t
     .text()
     .notNull()
@@ -46,7 +49,10 @@ export const syncRecords = sqliteTable('sync_records', {
 });
 
 export const conflictRecords = sqliteTable('conflict_records', {
-  id: t.text().primaryKey(),
+  id: t
+    .text()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   vaultId: t
     .text()
     .notNull()
