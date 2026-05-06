@@ -1,6 +1,6 @@
 import { AppError } from '@/common/errors/app.error';
 
-// TODO: More detailed error message with instructions on how to resolve the conflict?
+// TODO: Integrate with ConflictModule
 export class MergeConflictError extends AppError {
   constructor(localPath: string, gitMessage: string, operation: string) {
     super(`Merge conflict in ${localPath}`, 'MERGE_CONFLICT', 409, {

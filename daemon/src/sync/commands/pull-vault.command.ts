@@ -3,6 +3,8 @@ import { SyncRecordPayload } from '../sync.types';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
+import { MergeConflictError } from '@/git/errors/merge-conflict.error';
+import { NetworkError } from '@/git/errors/network.error';
 
 export class PullVaultCommand {
   constructor(public readonly vaultId: SyncRecordPayload['vaultId']) {}
@@ -27,6 +29,20 @@ export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
       vaultInfo.remote,
     );
 
-    await this.gitService.pull(vaultInfo.localPath);
+    try {
+      await this.gitService.pull(vaultInfo.localPath);
+    } catch (error) {
+      if (error instanceof MergeConflictError) {
+        // Call ConflictModule to resolve the conflict and retry pulling
+        // TODO: implement conflict resolution and retry logic
+        throw error;
+      }
+
+      if (error instanceof NetworkError) {
+        // TODO: Handle network errors (e.g., retry later, mark vault as offline, etc.)
+        throw error;
+      }
+      throw error;
+    }
   }
 }
