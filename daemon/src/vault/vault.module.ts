@@ -7,6 +7,7 @@ import { DeleteVaultHandler } from './commands/delete-vault.command';
 import { GetVaultHandler } from './queries/get-vault.query';
 import { ListVaultsHandler } from './queries/list-vaults.query';
 import { VaultController } from './vault.controller';
+import { GetVaultByPathHandler } from './queries/get-vault-by-path.query';
 
 @Module({
   imports: [DatabaseModule],
@@ -17,6 +18,7 @@ import { VaultController } from './vault.controller';
     DeleteVaultHandler,
     GetVaultHandler,
     ListVaultsHandler,
+    GetVaultByPathHandler,
   ],
   controllers: [VaultController],
 })
