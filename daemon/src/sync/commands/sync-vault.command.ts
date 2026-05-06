@@ -48,6 +48,8 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
           const cause = recordError.cause;
           throw new SyncRecordPersistenceError(command.vaultId, cause);
         }
+
+        throw recordError;
       }
     } catch (syncError) {
       try {
@@ -60,8 +62,7 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
         });
       } catch (recordError) {
         if (recordError instanceof DrizzleQueryError) {
-          const cause = recordError.cause;
-          throw new SyncRecordPersistenceError(command.vaultId, cause);
+          // TODO: log failure to persist the sync failure record.
         }
       }
 
