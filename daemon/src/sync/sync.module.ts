@@ -6,6 +6,7 @@ import { PullVaultHandler } from './commands/pull-vault.command';
 import { StageVaultHandler } from './commands/stage-vault.command';
 import { CommitVaultHandler } from './commands/commit-vault.command';
 import { PushVaultHandler } from './commands/push-vault.command';
+import { SyncVaultHandler } from './commands/sync-vault.command';
 
 @Module({
   imports: [DatabaseModule, GitModule],
@@ -15,6 +16,7 @@ import { PushVaultHandler } from './commands/push-vault.command';
     StageVaultHandler,
     CommitVaultHandler,
     PushVaultHandler,
+    SyncVaultHandler,
   ],
 })
 export class SyncModule {}
