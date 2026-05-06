@@ -4,7 +4,9 @@ import * as t from 'drizzle-orm/sqlite-core';
 
 // TODO: extract to a separate .helper file if this gets too big
 const timestamps = {
-  updatedAt: t.integer({ mode: 'timestamp' }),
+  updatedAt: t
+    .integer({ mode: 'timestamp' })
+    .$onUpdate(() => sql<number>`(unixepoch())`),
   createdAt: t
     .integer({ mode: 'timestamp' })
     .notNull()
