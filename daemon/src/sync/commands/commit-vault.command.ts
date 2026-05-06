@@ -30,6 +30,9 @@ export class CommitVaultHandler implements ICommandHandler<CommitVaultCommand> {
       vaultInfo.remote,
     );
 
-    await this.gitService.commit(vaultInfo.localPath, command.commitMessage);
+    return await this.gitService.commit(
+      vaultInfo.localPath,
+      command.commitMessage,
+    );
   }
 }

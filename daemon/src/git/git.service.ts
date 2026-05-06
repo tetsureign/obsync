@@ -54,8 +54,9 @@ export class GitService {
   }
 
   async commit(localPath: string, message: string) {
-    await this.runGitOperation(localPath, 'commit', async (git) => {
-      await git.commit(message);
+    return await this.runGitOperation(localPath, 'commit', async (git) => {
+      const result = await git.commit(message);
+      return result.commit;
     });
   }
 
