@@ -7,9 +7,10 @@ import { StageVaultHandler } from './commands/stage-vault.command';
 import { CommitVaultHandler } from './commands/commit-vault.command';
 import { PushVaultHandler } from './commands/push-vault.command';
 import { SyncVaultHandler } from './commands/sync-vault.command';
+import { VaultModule } from '@/vault/vault.module';
 
 @Module({
-  imports: [DatabaseModule, GitModule],
+  imports: [DatabaseModule, GitModule, VaultModule],
   providers: [
     SyncRepository,
     PullVaultHandler,
