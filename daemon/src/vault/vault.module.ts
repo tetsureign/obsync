@@ -20,6 +20,7 @@ import { GetVaultByPathHandler } from './queries/get-vault-by-path.query';
     ListVaultsHandler,
     GetVaultByPathHandler,
   ],
+  exports: [VaultRepository],
   controllers: [VaultController],
 })
 export class VaultModule {}
