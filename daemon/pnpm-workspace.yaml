@@ -1,5 +1,6 @@
 allowBuilds:
   '@nestjs/core': true
-  '@swc/core': false
+  '@scarf/scarf': false
+  '@swc/core': true
   esbuild: true
   unrs-resolver: true
