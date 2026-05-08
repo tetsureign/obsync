@@ -9,6 +9,7 @@ import { Request, Response } from 'express';
 import { AppError } from '../errors/app.error';
 import { ZodSerializationException } from 'nestjs-zod';
 import { ZodError } from 'zod';
+import { currentInstantIso } from '../utils/temporal';
 
 @Catch()
 export class AppExceptionFilter implements ExceptionFilter {
@@ -23,7 +24,7 @@ export class AppExceptionFilter implements ExceptionFilter {
         statusCode: exception.statusCode,
         code: exception.code,
         message: exception.message,
-        timestamp: new Date().toISOString(),
+        timestamp: currentInstantIso(),
         path: request.url,
         details: exception.details,
       });
@@ -56,7 +57,7 @@ export class AppExceptionFilter implements ExceptionFilter {
       statusCode: 500,
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Internal server error',
-      timestamp: new Date().toISOString(),
+      timestamp: currentInstantIso(),
       path: request.url,
     });
   }

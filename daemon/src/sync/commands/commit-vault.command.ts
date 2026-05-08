@@ -3,11 +3,12 @@ import { SyncRecordPayload } from '../sync.types';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
+import { currentInstantIso } from '@/common/utils/temporal';
 
 export class CommitVaultCommand {
   constructor(
     public readonly vaultId: SyncRecordPayload['vaultId'],
-    public readonly commitMessage: string = `auto commit at ${new Date().toISOString()}`,
+    public readonly commitMessage: string = `auto commit at ${currentInstantIso()}`,
   ) {}
 }
 
