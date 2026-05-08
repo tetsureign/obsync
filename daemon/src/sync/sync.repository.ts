@@ -1,6 +1,6 @@
 import { Database } from '@/database/database';
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 import { syncRecords } from '@/database/schema';
 import { NewSyncRecord } from './sync.types';
 
@@ -45,5 +45,13 @@ export class SyncRepository {
       .run();
 
     return result.rowsAffected > 0;
+  }
+
+  async getSyncHistory(vaultId: string) {
+    return await this.database.db
+      .select()
+      .from(syncRecords)
+      .where(eq(syncRecords.vaultId, vaultId))
+      .orderBy(asc(syncRecords.updatedAt));
   }
 }

@@ -66,6 +66,13 @@ export class GitService {
     });
   }
 
+  async diff(localPath: string, filePaths: string[]) {
+    return await this.runGitOperation(localPath, 'diff', async (git) => {
+      const diff = await git.diff(filePaths);
+      return diff;
+    });
+  }
+
   async stash(localPath: string) {
     await this.runGitOperation(localPath, 'stash', async (git) => {
       await git.stash();
