@@ -2,8 +2,7 @@ import { z } from 'zod';
 
 export const vaultConflictStrategySchema = z.enum([
   'log-and-skip',
-  'force-local',
-  'force-remote',
+  'stash-and-retry',
 ]);
 
 export const vaultCoreSchema = z.object({

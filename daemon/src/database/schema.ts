@@ -79,7 +79,7 @@ export const conflictRecords = sqliteTable('conflict_records', {
     .notNull()
     .references(() => vaults.id, { onDelete: 'cascade' }),
   files: t.text().notNull(), // JSON array of file paths that are in conflict
-  strategy: t.text().notNull(),
+  strategy: t.text({ enum: ['log-and-skip', 'stash-and-retry'] }).notNull(),
   resolved: t.integer({ mode: 'boolean' }).notNull().default(false),
   ...timestamps,
 });
