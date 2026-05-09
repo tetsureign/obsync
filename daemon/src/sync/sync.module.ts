@@ -1,5 +1,5 @@
 import { DatabaseModule } from '@/database/database.module';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { SyncRepository } from './sync.repository';
 import { GitModule } from '@/git/git.module';
 import { PullVaultHandler } from './commands/pull-vault.command';
@@ -10,7 +10,7 @@ import { SyncVaultHandler } from './commands/sync-vault.command';
 import { VaultModule } from '@/vault/vault.module';
 
 @Module({
-  imports: [DatabaseModule, GitModule, VaultModule],
+  imports: [DatabaseModule, GitModule, forwardRef(() => VaultModule)],
   providers: [
     SyncRepository,
     PullVaultHandler,
@@ -19,5 +19,6 @@ import { VaultModule } from '@/vault/vault.module';
     PushVaultHandler,
     SyncVaultHandler,
   ],
+  exports: [SyncRepository],
 })
 export class SyncModule {}

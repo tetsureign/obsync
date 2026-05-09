@@ -5,6 +5,7 @@ import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
 import { MergeConflictError } from '@/git/errors/merge-conflict.error';
 import { NetworkError } from '@/git/errors/network.error';
+import { forwardRef, Inject } from '@nestjs/common';
 
 export class PullVaultCommand {
   constructor(public readonly vaultId: SyncRecordPayload['vaultId']) {}
@@ -13,6 +14,7 @@ export class PullVaultCommand {
 @CommandHandler(PullVaultCommand)
 export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
   constructor(
+    @Inject(forwardRef(() => VaultRepository))
     private vaultRepository: VaultRepository,
     private gitService: GitService,
   ) {}

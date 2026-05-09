@@ -4,6 +4,7 @@ import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
 import { currentInstantIso } from '@/common/utils/temporal';
+import { forwardRef, Inject } from '@nestjs/common';
 
 export class CommitVaultCommand {
   constructor(
@@ -15,6 +16,7 @@ export class CommitVaultCommand {
 @CommandHandler(CommitVaultCommand)
 export class CommitVaultHandler implements ICommandHandler<CommitVaultCommand> {
   constructor(
+    @Inject(forwardRef(() => VaultRepository))
     private vaultRepository: VaultRepository,
     private gitService: GitService,
   ) {}

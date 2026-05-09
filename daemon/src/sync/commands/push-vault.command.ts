@@ -4,6 +4,7 @@ import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
 import { NetworkError } from '@/git/errors/network.error';
+import { forwardRef, Inject } from '@nestjs/common';
 
 export class PushVaultCommand {
   constructor(public readonly vaultId: SyncRecordPayload['vaultId']) {}
@@ -12,6 +13,7 @@ export class PushVaultCommand {
 @CommandHandler(PushVaultCommand)
 export class PushVaultHandler implements ICommandHandler<PushVaultCommand> {
   constructor(
+    @Inject(forwardRef(() => VaultRepository))
     private vaultRepository: VaultRepository,
     private gitService: GitService,
   ) {}

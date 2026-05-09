@@ -3,6 +3,7 @@ import { SyncRecordPayload } from '../sync.types';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
+import { forwardRef, Inject } from '@nestjs/common';
 
 export class StageVaultCommand {
   constructor(
@@ -14,6 +15,7 @@ export class StageVaultCommand {
 @CommandHandler(StageVaultCommand)
 export class StageVaultHandler implements ICommandHandler<StageVaultCommand> {
   constructor(
+    @Inject(forwardRef(() => VaultRepository))
     private vaultRepository: VaultRepository,
     private gitService: GitService,
   ) {}
