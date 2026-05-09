@@ -5,6 +5,9 @@ import { LibsqlError } from '@libsql/client';
 import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
 import { VaultNotFoundError } from '../errors/vault-not-found.error';
 import { DrizzleQueryError } from 'drizzle-orm';
+import { SyncRepository } from '@/sync/sync.repository';
+import { SyncOperationIsRunningError } from '../errors/sync-operation-running.error';
+import { Inject, forwardRef } from '@nestjs/common';
 
 export class UpdateVaultCommand {
   constructor(
@@ -20,23 +23,36 @@ export class UpdateVaultCommand {
 }
 @CommandHandler(UpdateVaultCommand)
 export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
-  constructor(private repository: VaultRepository) {}
+  constructor(
+    private repository: VaultRepository,
+
+    @Inject(forwardRef(() => SyncRepository))
+    private syncRepository: SyncRepository,
+  ) {}
 
   async execute(command: UpdateVaultCommand) {
     try {
-      const updatedVault = await this.repository.updateById(command.id, {
-        name: command.name,
-        localPath: command.localPath,
-        remote: command.remote,
-        branch: command.branch,
-        autoSync: command.autoSync,
-        syncInterval: command.syncInterval,
-        conflictStrategy: command.conflictStrategy,
-      });
+      const activeSync = await this.syncRepository.getActiveSyncOperation(
+        command.id,
+      );
 
-      if (!updatedVault) throw new VaultNotFoundError(command.id);
+      if (!activeSync) {
+        const updatedVault = await this.repository.updateById(command.id, {
+          name: command.name,
+          localPath: command.localPath,
+          remote: command.remote,
+          branch: command.branch,
+          autoSync: command.autoSync,
+          syncInterval: command.syncInterval,
+          conflictStrategy: command.conflictStrategy,
+        });
 
-      return updatedVault;
+        if (!updatedVault) throw new VaultNotFoundError(command.id);
+
+        return updatedVault;
+      } else {
+        throw new SyncOperationIsRunningError(command.id);
+      }
     } catch (error) {
       if (error instanceof DrizzleQueryError) {
         const cause = error.cause;
