@@ -8,6 +8,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { AppExceptionFilter } from './common/filters/app-exception.filter';
 import { SyncModule } from './sync/sync.module';
 import { GitModule } from './git/git.module';
+import { SyncQueueModule } from './sync-queue/sync-queue.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { GitModule } from './git/git.module';
     VaultModule,
     SyncModule,
     GitModule,
+    SyncQueueModule,
   ],
   controllers: [],
   providers: [
