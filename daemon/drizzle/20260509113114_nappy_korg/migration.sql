@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `sync_operations_one_active_per_vault` ON `sync_operations` (`vault_id`) WHERE "sync_operations"."status" IN ('queued', 'running');

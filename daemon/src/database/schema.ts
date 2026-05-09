@@ -33,25 +33,34 @@ export const vaults = sqliteTable('vaults', {
   ...timestamps,
 });
 
-export const syncOperations = sqliteTable('sync_operations', {
-  id: t
-    .text()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  vaultId: t
-    .text()
-    .notNull()
-    .references(() => vaults.id, { onDelete: 'cascade' }),
-  status: t.text().notNull(), // queued | running | success | failed | aborted
-  step: t.text().notNull(), // pull | stage | commit | push | done
-  error: t.text(),
-  commitSha: t.text(), // nullable — null if nothing was committed (already up to date)
-  startedAt: t
-    .integer({ mode: 'timestamp' })
-    .notNull()
-    .default(sql<number>`(unixepoch())`),
-  ...timestamps,
-});
+export const syncOperations = sqliteTable(
+  'sync_operations',
+  {
+    id: t
+      .text()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    vaultId: t
+      .text()
+      .notNull()
+      .references(() => vaults.id, { onDelete: 'cascade' }),
+    status: t.text().notNull(), // queued | running | success | failed | aborted
+    step: t.text().notNull(), // pull | stage | commit | push | done
+    error: t.text(),
+    commitSha: t.text(), // nullable — null if nothing was committed (already up to date)
+    startedAt: t
+      .integer({ mode: 'timestamp' })
+      .notNull()
+      .default(sql<number>`(unixepoch())`),
+    ...timestamps,
+  },
+  (table) => [
+    t
+      .uniqueIndex('sync_operations_one_active_per_vault')
+      .on(table.vaultId)
+      .where(sql`${table.status} IN ('queued', 'running')`),
+  ],
+);
 
 export const conflictRecords = sqliteTable('conflict_records', {
   id: t
