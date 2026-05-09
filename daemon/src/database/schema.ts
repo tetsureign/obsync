@@ -28,7 +28,10 @@ export const vaults = sqliteTable('vaults', {
     .integer()
     .notNull()
     .default(5 * 60), // in seconds
-  conflictStrategy: t.text().notNull().default('log-and-skip'), // 'log-and-skip' | 'stash-and-retry'
+  conflictStrategy: t
+    .text({ enum: ['log-and-skip', 'stash-and-retry'] })
+    .notNull()
+    .default('log-and-skip'), // 'log-and-skip' | 'stash-and-retry'
   lastSyncedAt: t.integer({ mode: 'timestamp' }),
   ...timestamps,
 });
@@ -44,8 +47,12 @@ export const syncOperations = sqliteTable(
       .text()
       .notNull()
       .references(() => vaults.id, { onDelete: 'cascade' }),
-    status: t.text().notNull(), // queued | running | success | failed | aborted
-    step: t.text().notNull(), // pull | stage | commit | push | done
+    status: t
+      .text({ enum: ['queued', 'running', 'success', 'failed', 'aborted'] })
+      .notNull(),
+    step: t
+      .text({ enum: ['pull', 'stage', 'commit', 'push', 'done'] })
+      .notNull(),
     error: t.text(),
     commitSha: t.text(), // nullable — null if nothing was committed (already up to date)
     startedAt: t

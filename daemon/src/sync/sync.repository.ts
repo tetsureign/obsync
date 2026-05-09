@@ -1,6 +1,6 @@
 import { Database } from '@/database/database';
 import { Injectable } from '@nestjs/common';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, and, inArray } from 'drizzle-orm';
 import { syncOperations } from '@/database/schema';
 import { NewSyncRecord } from './sync.types';
 
@@ -53,5 +53,39 @@ export class SyncRepository {
       .from(syncOperations)
       .where(eq(syncOperations.vaultId, vaultId))
       .orderBy(asc(syncOperations.updatedAt));
+  }
+
+  async getActiveSyncOperation(vaultId: string) {
+    return await this.database.db
+      .select()
+      .from(syncOperations)
+      .where(
+        and(
+          eq(syncOperations.vaultId, vaultId),
+          inArray(syncOperations.status, ['queued', 'running']),
+        ),
+      )
+      .limit(1)
+      .get();
+  }
+
+  async getAllActiveSyncOperations() {
+    return await this.database.db
+      .select()
+      .from(syncOperations)
+      .where(inArray(syncOperations.status, ['queued', 'running']));
+  }
+
+  async abortActiveSyncOperation(vaultId: string) {
+    const activeOperation = await this.getActiveSyncOperation(vaultId);
+
+    if (!activeOperation) {
+      return null;
+    }
+
+    return await this.updateById(activeOperation.id, {
+      status: 'aborted',
+      step: 'done',
+    });
   }
 }
