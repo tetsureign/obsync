@@ -33,7 +33,7 @@ export const vaults = sqliteTable('vaults', {
   ...timestamps,
 });
 
-export const syncRecords = sqliteTable('sync_records', {
+export const syncOperations = sqliteTable('sync_operations', {
   id: t
     .text()
     .primaryKey()
@@ -42,9 +42,14 @@ export const syncRecords = sqliteTable('sync_records', {
     .text()
     .notNull()
     .references(() => vaults.id, { onDelete: 'cascade' }),
-  status: t.text().notNull(), // success | failed | retrying
+  status: t.text().notNull(), // queued | running | success | failed | aborted
+  step: t.text().notNull(), // pull | stage | commit | push | done
   error: t.text(),
   commitSha: t.text(), // nullable — null if nothing was committed (already up to date)
+  startedAt: t
+    .integer({ mode: 'timestamp' })
+    .notNull()
+    .default(sql<number>`(unixepoch())`),
   ...timestamps,
 });
 

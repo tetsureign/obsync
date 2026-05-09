@@ -1,7 +1,7 @@
-import { syncRecords } from '@/database/schema';
+import { syncOperations } from '@/database/schema';
 import type { InferInsertModel } from 'drizzle-orm';
 
-export type NewSyncRecord = InferInsertModel<typeof syncRecords>;
+export type NewSyncRecord = InferInsertModel<typeof syncOperations>;
 
 export type SyncRecordPayload = Pick<
   NewSyncRecord,

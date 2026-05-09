@@ -1,7 +1,7 @@
 import { Database } from '@/database/database';
 import { Injectable } from '@nestjs/common';
 import { eq, asc } from 'drizzle-orm';
-import { syncRecords } from '@/database/schema';
+import { syncOperations } from '@/database/schema';
 import { NewSyncRecord } from './sync.types';
 
 @Injectable()
@@ -9,21 +9,21 @@ export class SyncRepository {
   constructor(private readonly database: Database) {}
 
   async findAll() {
-    return await this.database.db.select().from(syncRecords);
+    return await this.database.db.select().from(syncOperations);
   }
 
   async findById(id: string) {
     return await this.database.db
       .select()
-      .from(syncRecords)
-      .where(eq(syncRecords.id, id))
+      .from(syncOperations)
+      .where(eq(syncOperations.id, id))
       .limit(1)
       .get();
   }
 
   async create(data: NewSyncRecord) {
     return await this.database.db
-      .insert(syncRecords)
+      .insert(syncOperations)
       .values(data)
       .returning()
       .get();
@@ -31,17 +31,17 @@ export class SyncRepository {
 
   async updateById(id: string, data: Partial<NewSyncRecord>) {
     return await this.database.db
-      .update(syncRecords)
+      .update(syncOperations)
       .set(data)
-      .where(eq(syncRecords.id, id))
+      .where(eq(syncOperations.id, id))
       .returning()
       .get();
   }
 
   async delete(id: string) {
     const result = await this.database.db
-      .delete(syncRecords)
-      .where(eq(syncRecords.id, id))
+      .delete(syncOperations)
+      .where(eq(syncOperations.id, id))
       .run();
 
     return result.rowsAffected > 0;
@@ -50,8 +50,8 @@ export class SyncRepository {
   async getSyncHistory(vaultId: string) {
     return await this.database.db
       .select()
-      .from(syncRecords)
-      .where(eq(syncRecords.vaultId, vaultId))
-      .orderBy(asc(syncRecords.updatedAt));
+      .from(syncOperations)
+      .where(eq(syncOperations.vaultId, vaultId))
+      .orderBy(asc(syncOperations.updatedAt));
   }
 }
