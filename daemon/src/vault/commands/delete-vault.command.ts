@@ -4,37 +4,20 @@ import { LibsqlError } from '@libsql/client';
 import { VaultIsStillReferencedError } from '../errors/vault-still-referenced.error';
 import { VaultNotFoundError } from '../errors/vault-not-found.error';
 import { DrizzleQueryError } from 'drizzle-orm';
-import { SyncRepository } from '@/sync/sync.repository';
-import { SyncOperationIsRunningError } from '../errors/sync-operation-running.error';
-import { Inject, forwardRef } from '@nestjs/common';
-
 export class DeleteVaultCommand {
   constructor(public readonly vaultId: string) {}
 }
 @CommandHandler(DeleteVaultCommand)
 export class DeleteVaultHandler implements ICommandHandler<DeleteVaultCommand> {
-  constructor(
-    private repository: VaultRepository,
-
-    @Inject(forwardRef(() => SyncRepository))
-    private syncRepository: SyncRepository,
-  ) {}
+  constructor(private repository: VaultRepository) {}
 
   async execute(command: DeleteVaultCommand) {
     try {
-      const activeSync = await this.syncRepository.getActiveSyncOperation(
-        command.vaultId,
-      );
+      const deletedVault = await this.repository.delete(command.vaultId);
 
-      if (!activeSync) {
-        const deletedVault = await this.repository.delete(command.vaultId);
+      if (!deletedVault) throw new VaultNotFoundError(command.vaultId);
 
-        if (!deletedVault) throw new VaultNotFoundError(command.vaultId);
-
-        return deletedVault;
-      } else {
-        throw new SyncOperationIsRunningError(command.vaultId);
-      }
+      return deletedVault;
     } catch (error) {
       if (error instanceof DrizzleQueryError) {
         const cause = error.cause;

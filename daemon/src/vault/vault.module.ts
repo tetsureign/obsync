@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@/database/database.module';
 import { CreateVaultHandler } from './commands/create-vault.command';
 import { VaultRepository } from './vault.repository';
@@ -8,10 +8,9 @@ import { GetVaultHandler } from './queries/get-vault.query';
 import { ListVaultsHandler } from './queries/list-vaults.query';
 import { VaultController } from './vault.controller';
 import { GetVaultByPathHandler } from './queries/get-vault-by-path.query';
-import { SyncModule } from '@/sync/sync.module';
 
 @Module({
-  imports: [DatabaseModule, forwardRef(() => SyncModule)],
+  imports: [DatabaseModule],
   providers: [
     VaultRepository,
     CreateVaultHandler,

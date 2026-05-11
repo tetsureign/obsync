@@ -5,6 +5,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { createE2eApp } from './helpers/test-app';
 
+// TODO: More test cases regarding sync behaviors. Maybe I should split this to several files
 describe('Vault API', () => {
   let app: INestApplication<App>;
   let resetDb: () => Promise<void>;
@@ -187,7 +188,7 @@ describe('Vault API', () => {
 
       await request(app.getHttpServer())
         .patch(`/vaults/${body.id}`)
-        .send({ branch: 'develop' }) // Partial payload
+        .send({ branch: 'develop' })
         .expect(200);
     });
   });
