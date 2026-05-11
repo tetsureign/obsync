@@ -1,19 +1,19 @@
-import { CommandBus, CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { SyncRepository } from '../sync.repository';
-import { SyncOperationPayload } from '../sync.types';
-import { PullVaultCommand } from './pull-vault.command';
-import { PushVaultCommand } from './push-vault.command';
-import { StageVaultCommand } from './stage-vault.command';
-import { CommitVaultCommand } from './commit-vault.command';
+import { SyncOperation, SyncOperationPayload } from '../sync.types';
 import { AppError } from '@/common/errors/app.error';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { SyncRecordPersistenceError } from '../error/sync-record-persistence.error';
+import { VaultRepository } from '@/vault/vault.repository';
+import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
+import { GitService } from '@/git/git.service';
+import { currentInstantIso } from '@/common/utils/temporal';
 
 export class SyncVaultCommand {
   constructor(
     public readonly vaultId: SyncOperationPayload['vaultId'],
     public readonly filePaths: string[],
-    public readonly commitMessage: string,
+    public readonly commitMessage = `auto commit at ${currentInstantIso()}`,
   ) {}
 }
 
@@ -21,52 +21,91 @@ export class SyncVaultCommand {
 export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
   constructor(
     private repository: SyncRepository,
-    private commandBus: CommandBus,
+    private vaultRepository: VaultRepository,
+    private gitService: GitService,
   ) {}
 
   async execute(command: SyncVaultCommand) {
     let commitSha: string | undefined;
+    let operation: SyncOperation | undefined;
 
     try {
-      await this.commandBus.execute(new PullVaultCommand(command.vaultId));
-      await this.commandBus.execute(
-        new StageVaultCommand(command.vaultId, command.filePaths),
-      );
-      commitSha = await this.commandBus.execute(
-        new CommitVaultCommand(command.vaultId, command.commitMessage),
-      );
-      await this.commandBus.execute(new PushVaultCommand(command.vaultId));
+      operation = await this.repository.queueSyncOperation(command.vaultId);
 
-      try {
-        await this.repository.create({
-          vaultId: command.vaultId,
-          status: 'success',
-          commitSha: commitSha,
-        });
-      } catch (recordError) {
-        if (recordError instanceof DrizzleQueryError) {
-          const cause = recordError.cause;
-          throw new SyncRecordPersistenceError(command.vaultId, cause);
-        }
+      await this.repository.runSyncOperation(operation.id, 'pull');
 
-        throw recordError;
+      const vaultInfo = await this.vaultRepository.findById(command.vaultId);
+      if (!vaultInfo) {
+        throw new VaultNotFoundError(command.vaultId);
       }
+
+      await this.gitService.assertValidVault(
+        vaultInfo.localPath,
+        vaultInfo.remote,
+      );
+
+      await this.gitService.pull(vaultInfo.localPath);
+
+      await this.repository.runSyncOperation(operation.id, 'stage');
+      await this.gitService.stage(vaultInfo.localPath, command.filePaths);
+
+      await this.repository.runSyncOperation(operation.id, 'commit');
+      commitSha = await this.gitService.commit(
+        vaultInfo.localPath,
+        command.commitMessage,
+      );
+
+      await this.repository.runSyncOperation(operation.id, 'push');
+      await this.gitService.push(vaultInfo.localPath);
+
+      await this.completeOperation(operation, { commitSha });
     } catch (syncError) {
-      try {
-        await this.repository.create({
-          vaultId: command.vaultId,
-          status: 'failed',
-          error:
-            syncError instanceof AppError ? syncError.code : 'UNKNOWN_ERROR',
+      if (operation) {
+        await this.failOperation(command.vaultId, operation, syncError, {
           commitSha,
         });
-      } catch (recordError) {
-        if (recordError instanceof DrizzleQueryError) {
-          // TODO: log failure to persist the sync failure record.
-        }
       }
 
       throw syncError;
+    }
+  }
+
+  private async completeOperation(
+    operation: SyncOperation,
+    payload: Pick<SyncOperationPayload, 'commitSha'>,
+  ) {
+    try {
+      await this.repository.completeSyncOperation(operation.id, payload);
+    } catch (recordError) {
+      if (recordError instanceof DrizzleQueryError) {
+        throw new SyncRecordPersistenceError(
+          operation.vaultId,
+          recordError.cause,
+        );
+      }
+
+      throw recordError;
+    }
+  }
+
+  private async failOperation(
+    vaultId: string,
+    operation: SyncOperation,
+    error: unknown,
+    payload: Pick<SyncOperationPayload, 'commitSha'>,
+  ) {
+    try {
+      await this.repository.completeSyncOperation(operation.id, {
+        ...payload,
+        error: error instanceof AppError ? error.code : 'UNKNOWN_ERROR',
+      });
+    } catch (recordError) {
+      if (recordError instanceof DrizzleQueryError) {
+        // TODO: log failure to persist the sync failure record.
+        return;
+      }
+
+      throw new SyncRecordPersistenceError(vaultId, recordError);
     }
   }
 }
