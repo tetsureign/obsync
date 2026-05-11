@@ -2,7 +2,7 @@ import { Database } from '@/database/database';
 import { Injectable } from '@nestjs/common';
 import { eq, asc, and, inArray } from 'drizzle-orm';
 import { syncOperations } from '@/database/schema';
-import { NewSyncRecord } from './sync.types';
+import { NewSyncOperation, SyncOperation } from './sync.types';
 
 @Injectable()
 export class SyncRepository {
@@ -21,7 +21,7 @@ export class SyncRepository {
       .get();
   }
 
-  async create(data: NewSyncRecord) {
+  async create(data: NewSyncOperation) {
     return await this.database.db
       .insert(syncOperations)
       .values(data)
@@ -29,7 +29,7 @@ export class SyncRepository {
       .get();
   }
 
-  async updateById(id: string, data: Partial<NewSyncRecord>) {
+  async updateById(id: string, data: Partial<NewSyncOperation>) {
     return await this.database.db
       .update(syncOperations)
       .set(data)

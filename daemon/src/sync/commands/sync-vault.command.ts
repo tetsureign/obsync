@@ -1,6 +1,6 @@
 import { CommandBus, CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { SyncRepository } from '../sync.repository';
-import { SyncRecordPayload } from '../sync.types';
+import { SyncOperationPayload } from '../sync.types';
 import { PullVaultCommand } from './pull-vault.command';
 import { PushVaultCommand } from './push-vault.command';
 import { StageVaultCommand } from './stage-vault.command';
@@ -11,7 +11,7 @@ import { SyncRecordPersistenceError } from '../error/sync-record-persistence.err
 
 export class SyncVaultCommand {
   constructor(
-    public readonly vaultId: SyncRecordPayload['vaultId'],
+    public readonly vaultId: SyncOperationPayload['vaultId'],
     public readonly filePaths: string[],
     public readonly commitMessage: string,
   ) {}

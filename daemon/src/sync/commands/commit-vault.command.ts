@@ -1,5 +1,5 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { SyncRecordPayload } from '../sync.types';
+import { SyncOperationPayload } from '../sync.types';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
@@ -8,7 +8,7 @@ import { forwardRef, Inject } from '@nestjs/common';
 
 export class CommitVaultCommand {
   constructor(
-    public readonly vaultId: SyncRecordPayload['vaultId'],
+    public readonly vaultId: SyncOperationPayload['vaultId'],
     public readonly commitMessage: string = `auto commit at ${currentInstantIso()}`,
   ) {}
 }

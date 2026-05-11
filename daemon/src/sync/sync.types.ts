@@ -1,13 +1,15 @@
 import { syncOperations } from '@/database/schema';
-import type { InferInsertModel } from 'drizzle-orm';
+import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
-export type NewSyncRecord = InferInsertModel<typeof syncOperations>;
+export type NewSyncOperation = InferInsertModel<typeof syncOperations>;
 
-export type SyncRecordPayload = Pick<
-  NewSyncRecord,
+export type SyncOperation = InferSelectModel<typeof syncOperations>;
+
+export type SyncOperationPayload = Pick<
+  NewSyncOperation,
   'vaultId' | 'status' | 'error' | 'commitSha'
 >;
 
-export type UpdateSyncRecordPayload = Partial<
-  SyncRecordPayload & { id: string }
+export type UpdateSyncOperationPayload = Partial<
+  SyncOperationPayload & { id: string }
 >;
