@@ -28,6 +28,6 @@ export class GetGitStatusHandler implements IQueryHandler<GetGitStatusQuery> {
       vaultInfo.remote,
     );
 
-    return await this.gitService.getStatus(query.vaultId);
+    return await this.gitService.getStatus(vaultInfo.localPath);
   }
 }

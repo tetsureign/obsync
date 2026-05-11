@@ -31,6 +31,6 @@ export class GetGitDiffHandler implements IQueryHandler<GetGitDiffQuery> {
       vaultInfo.remote,
     );
 
-    return this.gitService.diff(query.vaultId, query.filePaths);
+    return this.gitService.diff(vaultInfo.localPath, query.filePaths);
   }
 }
