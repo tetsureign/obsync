@@ -1,6 +1,6 @@
 import { Database } from '@/database/database';
 import { Injectable } from '@nestjs/common';
-import { eq, asc, and, inArray } from 'drizzle-orm';
+import { eq, asc, and, inArray, ne } from 'drizzle-orm';
 import { syncOperations } from '@/database/schema';
 import { NewSyncOperation, SyncOperation } from './sync.types';
 
@@ -29,7 +29,8 @@ export class SyncRepository {
       .get();
   }
 
-  async updateById(id: string, data: Partial<NewSyncOperation>) {
+  // Might not be needed since we should use specific methods for updating sync operation status/step, but it's here just in case
+  private async updateById(id: string, data: Partial<NewSyncOperation>) {
     return await this.database.db
       .update(syncOperations)
       .set(data)
@@ -77,15 +78,70 @@ export class SyncRepository {
   }
 
   async abortActiveSyncOperation(vaultId: string) {
-    const activeOperation = await this.getActiveSyncOperation(vaultId);
+    return await this.database.db
+      .update(syncOperations)
+      .set({ status: 'aborted', step: 'done' })
+      .where(
+        and(
+          eq(syncOperations.vaultId, vaultId),
+          inArray(syncOperations.status, ['queued', 'running']),
+        ),
+      )
+      .returning()
+      .get();
+  }
 
-    if (!activeOperation) {
-      return null;
-    }
+  async abortAllActiveSyncOperations() {
+    return await this.database.db
+      .update(syncOperations)
+      .set({ status: 'aborted', step: 'done' })
+      .where(inArray(syncOperations.status, ['queued', 'running']))
+      .returning();
+  }
 
-    return await this.updateById(activeOperation.id, {
-      status: 'aborted',
-      step: 'done',
+  async queueSyncOperation(vaultId: string) {
+    return await this.create({
+      vaultId,
+      status: 'queued',
+      step: 'pull',
     });
+  }
+
+  async runSyncOperation(
+    id: string,
+    step: Exclude<SyncOperation['step'], 'done'>,
+  ) {
+    return await this.database.db
+      .update(syncOperations)
+      .set({ status: 'running', step })
+      .where(
+        and(
+          eq(syncOperations.id, id),
+          and(
+            inArray(syncOperations.status, ['queued', 'running']),
+            ne(syncOperations.step, 'done'),
+          ),
+        ),
+      )
+      .returning()
+      .get();
+  }
+
+  async completeSyncOperation(
+    id: string,
+    payload: Pick<NewSyncOperation, 'error' | 'commitSha'>,
+  ) {
+    return await this.database.db
+      .update(syncOperations)
+      .set({
+        status: payload.error ? 'failed' : 'success',
+        step: 'done',
+        ...payload,
+      })
+      .where(
+        and(eq(syncOperations.id, id), eq(syncOperations.status, 'running')),
+      )
+      .returning()
+      .get();
   }
 }
