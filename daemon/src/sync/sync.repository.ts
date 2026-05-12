@@ -111,6 +111,16 @@ export class SyncRepository {
     id: string,
     step: Exclude<SyncOperation['step'], 'done'>,
   ) {
+    const allowedPeviousSteps: Record<
+      Exclude<SyncOperation['step'], 'done'>,
+      SyncOperation['step'][]
+    > = {
+      pull: ['pull', 'stage', 'commit', 'push'], // allow re-running pull step in case of failure
+      stage: ['pull', 'stage', 'commit', 'push'], // allow re-running stage step in case of failure
+      commit: ['stage', 'commit', 'push'], // allow re-running commit step in case of failure, but only if stage step was successful (otherwise we might end up with unstaged changes that will be committed in the next commit attempt, which could be confusing)
+      push: ['commit', 'push'], // allow re-running push step in case of failure, but only if commit step was successful (otherwise we might end up with new commits that will be pushed in the next push attempt, which could be confusing)
+    };
+
     return await this.database.db
       .update(syncOperations)
       .set({ status: 'running', step })
@@ -120,6 +130,7 @@ export class SyncRepository {
           and(
             inArray(syncOperations.status, ['queued', 'running']),
             ne(syncOperations.step, 'done'),
+            inArray(syncOperations.step, allowedPeviousSteps[step]),
           ),
         ),
       )
