@@ -111,7 +111,7 @@ export class SyncRepository {
     id: string,
     step: Exclude<SyncOperation['step'], 'done'>,
   ) {
-    const allowedPeviousSteps: Record<
+    const allowedPreviousSteps: Record<
       Exclude<SyncOperation['step'], 'done'>,
       SyncOperation['step'][]
     > = {
@@ -130,7 +130,7 @@ export class SyncRepository {
           and(
             inArray(syncOperations.status, ['queued', 'running']),
             ne(syncOperations.step, 'done'),
-            inArray(syncOperations.step, allowedPeviousSteps[step]),
+            inArray(syncOperations.step, allowedPreviousSteps[step]),
           ),
         ),
       )
