@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import PQueue from 'p-queue';
-import pRetry from 'p-retry';
 
 @Injectable()
 export class SyncQueue {
@@ -19,15 +18,6 @@ export class SyncQueue {
     priority = 0,
   ) {
     const queue = this.getQueue(vaultId);
-    return queue.add(
-      async () => {
-        await pRetry(fn, {
-          retries: 3,
-          minTimeout: 1000,
-          factor: 5,
-        });
-      },
-      { priority },
-    );
+    return queue.add(fn, { priority });
   }
 }
