@@ -1,11 +1,10 @@
-import { AppError } from '@/common/errors/app.error';
+import { LogOnlyError } from '@/common/errors/log-only.error';
 
-export class SyncFailurePersistenceError extends AppError {
+export class SyncFailurePersistenceError extends LogOnlyError {
   constructor(vaultId: string, syncOperationId: string, details?: unknown) {
     super(
       `Sync operation ${syncOperationId} for vault ${vaultId} could not be marked failed`,
       'SYNC_FAILURE_PERSISTENCE_ERROR',
-      500,
       {
         vaultId,
         syncOperationId,
