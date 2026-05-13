@@ -101,7 +101,8 @@ export class SyncJobRunner {
         }
       });
     } catch (error) {
-      // Logs this error only. Not throwing back to app exception filter. To handle with retries
+      // Logs this error only. Not throwing back to app exception filter
+      // Retried here; if it still fails, log only
       // If retries couldn't help it, then whatever, it's not critical info
       this.logger.error(
         `Failed to record successful sync operation ${operation.id}`,
