@@ -4,9 +4,12 @@ import { Vault } from '@/vault/vault.types';
 import { Injectable, Logger } from '@nestjs/common';
 import { DrizzleQueryError } from 'drizzle-orm';
 import pRetry from 'p-retry';
-import { SyncRecordPersistenceError } from './error/sync-record-persistence.error';
+import { SyncOperationPersistenceError } from './error/sync-operation-persistence.error';
 import { SyncRepository } from './sync.repository';
 import { SyncOperation, SyncOperationPayload } from './sync.types';
+import { SyncStepTransitionError } from './error/sync-step-transition.error';
+import { SyncSuccessPersistenceError } from './error/sync-success-persistence.error';
+import { SyncFailurePersistenceError } from './error/sync-failure-persistence.error';
 
 type SyncJob = {
   operation: SyncOperation;
@@ -61,14 +64,15 @@ export class SyncJobRunner {
       );
 
       if (!updatedOperation) {
-        // TODO: Extract to a domain error for invalid sync operation transitions.
-        throw new Error(
-          `Sync operation ${operation.id} could not transition to ${step}`,
+        throw new SyncStepTransitionError(
+          operation.vaultId,
+          operation.id,
+          step,
         );
       }
     } catch (error) {
       if (error instanceof DrizzleQueryError) {
-        throw new SyncRecordPersistenceError(operation.vaultId, error.cause);
+        throw new SyncOperationPersistenceError(operation.vaultId, error.cause);
       }
 
       throw error;
@@ -87,13 +91,18 @@ export class SyncJobRunner {
         );
 
         if (!updatedOperation) {
-          // TODO: Extract to a domain error for invalid sync operation transitions.
-          throw new Error(
-            `Sync operation ${operation.id} could not be marked successful`,
+          throw new SyncSuccessPersistenceError(
+            operation.vaultId,
+            operation.id,
+            {
+              payload,
+            },
           );
         }
       });
     } catch (error) {
+      // Logs this error only. Not throwing back to app exception filter. To handle with retries
+      // If retries couldn't help it, then whatever, it's not critical info
       this.logger.error(
         `Failed to record successful sync operation ${operation.id}`,
         error instanceof Error ? error.stack : String(error),
@@ -118,14 +127,17 @@ export class SyncJobRunner {
         );
 
         if (!updatedOperation) {
-          // TODO: Extract to a domain error for invalid sync operation transitions.
-          throw new Error(
-            `Sync operation ${operation.id} could not be marked failed`,
+          throw new SyncFailurePersistenceError(
+            operation.vaultId,
+            operation.id,
+            {
+              syncError,
+              payload,
+            },
           );
         }
       });
     } catch (persistenceError) {
-      // Logs this error only. Not throwing back to app exception filter. To handle with retries
       this.logger.error(
         `Failed to record failed sync operation ${operation.id}`,
         {
@@ -152,7 +164,7 @@ export class SyncJobRunner {
       });
     } catch (error) {
       if (error instanceof DrizzleQueryError) {
-        throw new SyncRecordPersistenceError(vaultId, error.cause);
+        throw new SyncOperationPersistenceError(vaultId, error.cause);
       }
 
       throw error;
