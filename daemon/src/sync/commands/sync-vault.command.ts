@@ -8,6 +8,7 @@ import { VaultRepository } from '@/vault/vault.repository';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { GitService } from '@/git/git.service';
 import { currentInstantIso } from '@/common/utils/temporal';
+import { SyncQueue } from '@/sync-queue/sync-queue';
 
 export class SyncVaultCommand {
   constructor(
@@ -22,6 +23,7 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
   constructor(
     private repository: SyncRepository,
     private vaultRepository: VaultRepository,
+    private syncQueue: SyncQueue,
     private gitService: GitService,
   ) {}
 
@@ -31,34 +33,39 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
 
     try {
       operation = await this.repository.queueSyncOperation(command.vaultId);
-
-      await this.repository.runSyncOperation(operation.id, 'pull');
+      const queuedOperation = operation;
 
       const vaultInfo = await this.vaultRepository.findById(command.vaultId);
       if (!vaultInfo) {
         throw new VaultNotFoundError(command.vaultId);
       }
 
-      await this.gitService.assertValidVault(
-        vaultInfo.localPath,
-        vaultInfo.remote,
-      );
+      const runSyncOperation = async () => {
+        await this.repository.runSyncOperation(queuedOperation.id, 'pull');
 
-      await this.gitService.pull(vaultInfo.localPath);
+        await this.gitService.assertValidVault(
+          vaultInfo.localPath,
+          vaultInfo.remote,
+        );
 
-      await this.repository.runSyncOperation(operation.id, 'stage');
-      await this.gitService.stage(vaultInfo.localPath, command.filePaths);
+        await this.gitService.pull(vaultInfo.localPath);
 
-      await this.repository.runSyncOperation(operation.id, 'commit');
-      commitSha = await this.gitService.commit(
-        vaultInfo.localPath,
-        command.commitMessage,
-      );
+        await this.repository.runSyncOperation(queuedOperation.id, 'stage');
+        await this.gitService.stage(vaultInfo.localPath, command.filePaths);
 
-      await this.repository.runSyncOperation(operation.id, 'push');
-      await this.gitService.push(vaultInfo.localPath);
+        await this.repository.runSyncOperation(queuedOperation.id, 'commit');
+        commitSha = await this.gitService.commit(
+          vaultInfo.localPath,
+          command.commitMessage,
+        );
 
-      await this.completeOperation(operation, { commitSha });
+        await this.repository.runSyncOperation(queuedOperation.id, 'push');
+        await this.gitService.push(vaultInfo.localPath);
+
+        await this.completeOperation(queuedOperation, { commitSha });
+      };
+
+      await this.syncQueue.addToVaultQueue(vaultInfo.id, runSyncOperation);
     } catch (syncError) {
       if (operation) {
         await this.failOperation(command.vaultId, operation, syncError, {

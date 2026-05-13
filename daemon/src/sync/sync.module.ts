@@ -8,9 +8,15 @@ import { CommitVaultHandler } from './commands/commit-vault.command';
 import { PushVaultHandler } from './commands/push-vault.command';
 import { SyncVaultHandler } from './commands/sync-vault.command';
 import { VaultModule } from '@/vault/vault.module';
+import { SyncQueueModule } from '@/sync-queue/sync-queue.module';
 
 @Module({
-  imports: [DatabaseModule, GitModule, forwardRef(() => VaultModule)],
+  imports: [
+    DatabaseModule,
+    GitModule,
+    SyncQueueModule,
+    forwardRef(() => VaultModule),
+  ],
   providers: [
     SyncRepository,
     PullVaultHandler,
