@@ -155,4 +155,25 @@ export class SyncRepository {
       .returning()
       .get();
   }
+
+  async failSyncOperation(
+    id: string,
+    payload: Pick<NewSyncOperation, 'error' | 'commitSha'>,
+  ) {
+    return await this.database.db
+      .update(syncOperations)
+      .set({
+        status: 'failed',
+        step: 'done',
+        ...payload,
+      })
+      .where(
+        and(
+          eq(syncOperations.id, id),
+          inArray(syncOperations.status, ['queued', 'running']),
+        ),
+      )
+      .returning()
+      .get();
+  }
 }

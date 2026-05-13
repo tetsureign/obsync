@@ -9,6 +9,7 @@ import { PushVaultHandler } from './commands/push-vault.command';
 import { SyncVaultHandler } from './commands/sync-vault.command';
 import { VaultModule } from '@/vault/vault.module';
 import { SyncQueueModule } from '@/sync-queue/sync-queue.module';
+import { SyncJobRunner } from './sync-job.runner';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SyncQueueModule } from '@/sync-queue/sync-queue.module';
     CommitVaultHandler,
     PushVaultHandler,
     SyncVaultHandler,
+    SyncJobRunner,
   ],
   exports: [SyncRepository],
 })

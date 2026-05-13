@@ -1,0 +1,161 @@
+import { AppError } from '@/common/errors/app.error';
+import { GitService } from '@/git/git.service';
+import { Vault } from '@/vault/vault.types';
+import { Injectable, Logger } from '@nestjs/common';
+import { DrizzleQueryError } from 'drizzle-orm';
+import pRetry from 'p-retry';
+import { SyncRecordPersistenceError } from './error/sync-record-persistence.error';
+import { SyncRepository } from './sync.repository';
+import { SyncOperation, SyncOperationPayload } from './sync.types';
+
+type SyncJob = {
+  operation: SyncOperation;
+  vault: Vault;
+  filePaths: string[];
+  commitMessage: string;
+};
+
+@Injectable()
+export class SyncJobRunner {
+  private readonly logger = new Logger(SyncJobRunner.name);
+
+  constructor(
+    private readonly repository: SyncRepository,
+    private readonly gitService: GitService,
+  ) {}
+
+  async run(job: SyncJob) {
+    const { operation, vault, filePaths, commitMessage } = job;
+    let commitSha: string | undefined;
+
+    try {
+      await this.recordStepOrStop(operation, 'pull');
+      await this.gitService.assertValidVault(vault.localPath, vault.remote);
+      await this.gitService.pull(vault.localPath);
+
+      await this.recordStepOrStop(operation, 'stage');
+      await this.gitService.stage(vault.localPath, filePaths);
+
+      await this.recordStepOrStop(operation, 'commit');
+      commitSha = await this.gitService.commit(vault.localPath, commitMessage);
+
+      await this.recordStepOrStop(operation, 'push');
+      await this.gitService.push(vault.localPath);
+
+      await this.recordSuccessBestEffort(operation, { commitSha });
+    } catch (syncError) {
+      await this.recordFailureBestEffort(operation, syncError, { commitSha });
+
+      throw syncError;
+    }
+  }
+
+  private async recordStepOrStop(
+    operation: SyncOperation,
+    step: Exclude<SyncOperation['step'], 'done'>,
+  ) {
+    try {
+      const updatedOperation = await this.repository.runSyncOperation(
+        operation.id,
+        step,
+      );
+
+      if (!updatedOperation) {
+        // TODO: Extract to a domain error for invalid sync operation transitions.
+        throw new Error(
+          `Sync operation ${operation.id} could not transition to ${step}`,
+        );
+      }
+    } catch (error) {
+      if (error instanceof DrizzleQueryError) {
+        throw new SyncRecordPersistenceError(operation.vaultId, error.cause);
+      }
+
+      throw error;
+    }
+  }
+
+  private async recordSuccessBestEffort(
+    operation: SyncOperation,
+    payload: Pick<SyncOperationPayload, 'commitSha'>,
+  ) {
+    try {
+      await this.persistFinalStateWithRetry(operation.vaultId, async () => {
+        const updatedOperation = await this.repository.completeSyncOperation(
+          operation.id,
+          payload,
+        );
+
+        if (!updatedOperation) {
+          // TODO: Extract to a domain error for invalid sync operation transitions.
+          throw new Error(
+            `Sync operation ${operation.id} could not be marked successful`,
+          );
+        }
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to record successful sync operation ${operation.id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  private async recordFailureBestEffort(
+    operation: SyncOperation,
+    syncError: unknown,
+    payload: Pick<SyncOperationPayload, 'commitSha'>,
+  ) {
+    try {
+      await this.persistFinalStateWithRetry(operation.vaultId, async () => {
+        const updatedOperation = await this.repository.failSyncOperation(
+          operation.id,
+          {
+            ...payload,
+            error:
+              syncError instanceof AppError ? syncError.code : 'UNKNOWN_ERROR',
+          },
+        );
+
+        if (!updatedOperation) {
+          // TODO: Extract to a domain error for invalid sync operation transitions.
+          throw new Error(
+            `Sync operation ${operation.id} could not be marked failed`,
+          );
+        }
+      });
+    } catch (persistenceError) {
+      // Logs this error only. Not throwing back to app exception filter. To handle with retries
+      this.logger.error(
+        `Failed to record failed sync operation ${operation.id}`,
+        {
+          persistenceError:
+            persistenceError instanceof Error
+              ? persistenceError.stack
+              : String(persistenceError),
+          syncError:
+            syncError instanceof Error ? syncError.stack : String(syncError),
+        },
+      );
+    }
+  }
+
+  private async persistFinalStateWithRetry(
+    vaultId: string,
+    fn: () => Promise<void>,
+  ) {
+    try {
+      await pRetry(fn, {
+        retries: 3,
+        minTimeout: 500,
+        factor: 2,
+      });
+    } catch (error) {
+      if (error instanceof DrizzleQueryError) {
+        throw new SyncRecordPersistenceError(vaultId, error.cause);
+      }
+
+      throw error;
+    }
+  }
+}
