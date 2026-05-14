@@ -2,24 +2,46 @@
 
 ## Goal
 
-Make vault sync durable, serializable per vault, observable by the CLI, and recoverable after daemon interruption.
+Keep `obsync sync` durable enough to be observable and safe, but simple enough to behave like a mostly stateless command.
 
-The sync operation should be modeled as a durable state machine, not as a transient call that only writes a final history row.
+The daemon should not try to resume an old internal workflow snapshot after interruption. If a sync operation was left dangling, abort it and start a fresh sync from the vault's current filesystem and Git state.
 
-## Naming
+This is the intended MVP contract:
 
-Use names like:
+```txt
+obsync sync = converge the vault from its current state
+not
+obsync sync = resume a previous daemon-internal step exactly
+```
 
-- `SyncOperation`
-- `SyncJob`
-- `SyncRun`
-- `VaultSync`
+The sync operation table is still valuable as audit history, active-operation guardrail, CLI status source, and vault-mutation protection.
+
+## Current Code Snapshot
+
+Already implemented:
+
+- `sync_operations` has `status`, `step`, `error`, `commitSha`, `startedAt`, timestamps, and a partial unique index named `sync_operations_one_active_per_vault`.
+- Active operations are currently `queued` and `running`.
+- `SyncRepository` has `getActiveSyncOperation`, `getAllActiveSyncOperations`, `abortActiveSyncOperation`, `abortAllActiveSyncOperations`, `queueSyncOperation`, `runSyncOperation`, `completeSyncOperation`, and `failSyncOperation`.
+- `SyncQueue` serializes work per vault with `PQueue({ concurrency: 1 })`.
+- `SyncVaultHandler` reads the vault, creates a queued operation, enqueues a background job, and returns the operation.
+- `SyncJobRunner` records each step before doing Git work and treats pre-Git step persistence as mandatory.
+- Final success/failure persistence is best effort and logged if it fails.
+- `VaultRepository` already rejects update/delete while active sync operations exist.
+- `conflict_records` already exists as a table, but conflict handling is not yet a first-class module.
+
+Not yet matching this plan:
+
+- `SyncVaultHandler` currently calls `queueSyncOperation` directly. It does not abort a dangling active operation first.
+- `SyncQueue` does not yet expose whether a vault queue has in-memory work running or waiting.
+- `sync_operations` does not yet have an `abortRequestedAt` field for cooperative user cancellation.
+- Daemon startup does not yet call `abortAllActiveSyncOperations`.
+- `get-sync-status` is still a TODO.
+- Conflict handling is still mostly a placeholder.
 
 ## Data Model
 
-Extend or replace the current `sync_records` history-only model with a stateful sync operation model.
-
-Suggested fields:
+The existing model is good enough for the stateless-sync plan:
 
 ```ts
 syncOperations {
@@ -29,24 +51,26 @@ syncOperations {
   step         // pull | stage | commit | push | done
   error
   commitSha
+  abortRequestedAt
   startedAt
-  finishedAt
   updatedAt
   createdAt
 }
 ```
 
-`status` represents the operation lifecycle.
+`status` represents operation lifecycle.
 
-`step` represents the last known execution point.
+`step` represents the step the runner was about to attempt or most recently attempted. For terminal operations, use `step = done`.
 
-`commitSha` should be nullable because a sync may not create a commit.
+`commitSha` stays nullable because a sync may not create a commit.
 
-## Per-Vault Locking
+`abortRequestedAt` is nullable. When set on a `queued` or `running` operation, the runner should stop at the next safe boundary and mark the operation `aborted/done`.
 
-Use the sync operation table as the lock source.
+No new `resumable`, `interrupted`, or `conflicted` status is needed for MVP.
 
-Add a DB-level rule that allows only one active sync per vault:
+## Active Operation Rule
+
+Keep the DB-level rule that allows only one active sync per vault:
 
 ```sql
 CREATE UNIQUE INDEX sync_operations_one_active_per_vault
@@ -54,81 +78,39 @@ ON sync_operations(vault_id)
 WHERE status IN ('queued', 'running');
 ```
 
-This is still useful even with an in-process queue because it protects against duplicate enqueueing, daemon restarts, and implementation mistakes.
+This remains useful even with one daemon process because it protects against duplicate enqueueing and implementation mistakes.
 
-For the expected architecture, assume one daemon process. The CLI should talk to the daemon instead of directly running sync logic. Use `p-queue` inside the daemon for lightweight scheduling.
+For MVP, do not use active operations as resumable workflow state. Use them as:
 
-Suggested queue design:
-
-- one queue per vault with concurrency `1`, or
-- a global queue plus DB-backed active-sync checks
-
-Different vaults may sync concurrently. Operations for the same vault must serialize.
+- an in-progress marker
+- a mutation guard for vault update/delete
+- a status source for the CLI
+- an audit trail if the daemon or command was interrupted
 
 ## Sync Flow
 
-1. User requests sync through CLI/API.
-2. Daemon attempts to create a `queued` sync operation for `vaultId`.
-3. If an active sync already exists, return or subscribe to that operation instead of starting another one.
-4. Queue worker marks the operation `running`.
-5. Worker reads the vault once at sync start.
-6. Worker runs git steps using stable vault data.
-7. Before or after each step, persist progress in `step`.
-8. On success, mark operation `success`, set `step = done`, persist `commitSha`, and update vault metadata such as `lastSyncedAt` if needed.
-9. On failure, mark operation `failed` and persist a specific error code.
+On `obsync sync` / sync API call:
 
-Keep existing validation inside standalone git commands, but avoid letting the orchestrated sync re-read mutable vault data before every step. The sync operation should use one vault snapshot for the whole run.
+1. Load the vault.
+2. Check whether this daemon currently has in-memory sync work for that vault.
+3. If the per-vault queue is busy, do not abort the current operation out from under the runner. Return the active operation or a clear already-running response. If the user wants to stop that operation, they should use the abort endpoint/command.
+4. If the per-vault queue is idle, abort any active `queued` or `running` operation for that vault. At that point the active DB record is considered stale/dangling.
+5. Create a fresh `queued/pull` operation.
+6. Enqueue a background job for that new operation in the per-vault queue.
+7. Return the queued operation.
+8. Runner starts from `pull` every time.
+9. Before each Git phase, atomically mark the operation `running/<step>`.
+10. On success, mark `success/done` and persist `commitSha` if available.
+11. On ordinary failure, mark `failed/done` and persist a specific error code.
+12. On conflict, record conflict details separately and mark the sync operation terminal for MVP.
 
-## State Transitions
-
-Valid transitions:
-
-```txt
-queued -> running
-running -> success
-running -> failed
-running -> aborted
-failed -> queued    // retry, if supported
-failed -> running   // retry, if reusing the same operation
-```
-
-Invalid transitions should be rejected in code.
-
-Do not allow:
-
-```txt
-success -> running
-aborted -> running
-success -> failed
-```
-
-## Git Step Recovery
-
-Do not trust the DB step alone after interruption. On resume, inspect git state too.
-
-Step-specific notes:
-
-- `pull`: usually safe to retry, but handle conflicts explicitly.
-- `stage`: usually safe to retry with the same file paths.
-- `commit`: tricky. The daemon may have died after the commit succeeded but before `commitSha` was saved.
-- `push`: usually safe to retry if the local branch is ahead of remote.
-
-Recovery should inspect:
-
-- working tree status
-- staged files
-- latest commit
-- whether the local branch is ahead of the remote
-- whether the remote already contains the commit
-- conflict state
-
-The database tells the daemon where it thought it was. Git tells the daemon what actually happened.
+This keeps the CLI behavior simple: every explicit sync request starts a new attempt from the current vault state unless this daemon is already actively syncing that vault.
 
 ## Startup Reconciliation
 
 On daemon startup:
 
-1. Query active operations:
+1. Query all active operations:
 
    ```sql
    SELECT *
@@ -136,9 +118,8 @@ On daemon startup:
    WHERE status IN ('queued', 'running');
    ```
 
-2. Enqueue `queued` operations.
-3. For `running` operations, inspect the repository state.
-4. Either resume safely or mark the operation `failed` with a daemon interruption error.
+2. Mark them `aborted/done`.
+3. Do not enqueue or resume them.
 
 Suggested error code:
 
@@ -146,26 +127,129 @@ Suggested error code:
 DAEMON_INTERRUPTED
 ```
 
-If exact resume semantics are hard, prefer marking interrupted operations as failed and allowing a fresh sync, as long as git state is inspected first to avoid duplicate commits or incorrect pushes.
+Startup reconciliation is cleanup, not recovery. If the user wants sync after startup, they call `obsync sync`, which creates a fresh operation.
+
+## State Transitions
+
+Keep terminal records terminal:
+
+```txt
+queued  -> running
+queued  -> aborted
+running -> success
+running -> failed
+running -> running with abortRequestedAt
+running -> aborted
+```
+
+Terminal states:
+
+```txt
+success/done
+failed/done
+aborted/done
+```
+
+Do not allow terminal operations to become active again:
+
+```txt
+success -> running
+failed  -> running
+aborted -> running
+```
+
+Retries should create a new operation instead of reusing the old one.
+
+## Step Recording
+
+Keep the current "record step before Git" model.
+
+`runSyncOperation(id, step)` is not just logging. It is an atomic transition guard:
+
+- set `status = running`
+- set the current step
+- only update rows that are still active
+- reject illegal transitions by returning no row
+
+The runner should stop before Git if this transition cannot be recorded. This avoids doing filesystem/Git work when the durable operation state cannot be updated.
+
+Possible naming cleanup later:
+
+```txt
+recordStepOrStop -> startStepOrStop
+runSyncOperation -> startSyncOperationStep
+```
+
+The current names are workable, but the desired meaning is "attempt to start this step atomically."
+
+## Cooperative Abort
+
+Support two kinds of abort:
+
+- stale-state abort: terminal cleanup of old active records
+- user-requested abort: cooperative cancellation of queued or running work
+
+Queued abort is logical. Mark the queued operation with `abortRequestedAt`, or directly mark it `aborted/done` if the job has not started. The queued function should check operation state before doing Git work and no-op if it has already been aborted.
+
+Running abort should be cooperative. The abort command should not set `status = aborted` while the runner is inside a Git operation. Instead:
+
+1. CLI receives the user's key combination while streaming/watching logs.
+2. CLI sends an abort request to the daemon for the active operation.
+3. Repository sets `abortRequestedAt` if the operation is `queued` or `running`.
+4. The runner checks for abort before each Git phase and between phases.
+5. If abort was requested, the runner marks `aborted/done` and exits without recording failure.
+
+Safe abort boundaries:
+
+- before `pull`
+- after `pull`, before `stage`
+- after `stage`, before `commit`
+- after `commit`, before `push`
+- after `push`, before final success recording
+
+Do not hard-cancel the currently executing Git command for MVP. If the user aborts while `pull` is running, `pull` may finish, then the runner stops before `stage`.
+
+User abort is not a sync failure. It should not store `UNKNOWN_ERROR`, should not go through ordinary failure recording, and should not be logged as a runner error.
+
+Suggested repository methods:
+
+```txt
+requestAbortSyncOperation(operationId)
+getAbortRequested(operationId)
+abortSyncOperation(operationId, error?)
+```
+
+`abortSyncOperation` should only finalize active operations. It should return no row if the operation is already terminal, and callers should treat that as a controlled no-op where appropriate.
+
+## Conflict Handling
+
+Conflicts are different from stale operation records. A stale operation can be aborted and forgotten for control-flow purposes. A merge conflict is real Git working-tree state.
+
+For MVP:
+
+1. Detect `MergeConflictError`.
+2. Create a `conflict_record` with the vault id, conflicted files when available, and selected strategy.
+3. Mark the sync operation terminal, probably `failed/done` with `error = MERGE_CONFLICT`.
+4. Let the user inspect/resolve the Git conflict.
+5. A later `obsync sync` starts fresh from whatever state the vault is currently in.
+
+Avoid adding `conflicted` status until conflict resolution becomes a real workflow. If that status is added later, update the active-operation unique index to include it:
+
+```sql
+WHERE status IN ('queued', 'running', 'conflicted')
+```
 
 ## Vault Mutation During Sync
 
 Vault metadata should not change while an active sync exists for that vault.
 
-Update and delete commands should check the sync operation table before mutating a vault:
+The current repository-layer behavior already matches this direction: update/delete should reject when a `queued` or `running` operation exists.
 
-```txt
-if active sync exists for vault:
-  reject update/delete
-```
-
-This avoids holding long database transactions across git operations.
-
-If later the daemon exposes standalone `pull`, `push`, `commit`, or `stage` commands, decide whether they also create short-lived sync operations or use the same per-vault operation queue.
+This avoids holding long database transactions across Git operations while still preventing obvious vault config changes during active sync.
 
 ## Error Handling
 
-Use specific error codes instead of collapsing everything to `UNKNOWN_ERROR`.
+Use specific error codes instead of collapsing everything to `UNKNOWN_ERROR` where the source error is known.
 
 Useful categories:
 
@@ -180,29 +264,35 @@ Useful categories:
 - `SYNC_ALREADY_RUNNING`
 - `SYNC_ABORTED`
 - `DAEMON_INTERRUPTED`
-- `SYNC_RECORD_PERSISTENCE_FAILED`
+- `SYNC_OPERATION_PERSISTENCE_FAILED`
 
-Persist the error code on the sync operation.
+Persist the error code on the sync operation when possible.
 
-Where useful, keep the original error cause available to logs, but avoid exposing raw implementation errors directly through CLI/API responses.
+Keep the original error cause in logs, but avoid exposing raw implementation errors directly through CLI/API responses.
 
 ## Abort Semantics
 
-Define abort behavior explicitly.
+There are two abort meanings in this plan.
 
-Possible levels:
+Stale-state abort means "this previous active operation is no longer trusted as a workflow snapshot."
 
-- queued operation: remove from queue or mark `aborted`
-- running operation: mark `abort_requested` if that state is added later
-- executing git process: send a cancellation signal
+User-requested abort means "stop this queued or running operation at the next safe boundary."
 
-The simplest first implementation:
+Use stale-state abort in two places:
 
-- queued operations can be aborted
-- running operations cannot be cancelled immediately
-- running operations may complete as success or failed
+- daemon startup: abort all active operations
+- new sync request: abort a stale active operation for that vault before creating a fresh one
 
-If hard cancellation is added later, the git execution layer needs cancellation support.
+Use user-requested abort through an explicit abort endpoint/command:
+
+- queued operations can be marked `aborted/done` or `abortRequestedAt`
+- running operations set `abortRequestedAt`
+- the runner finalizes `aborted/done` between Git operations
+- currently executing Git work is not cancelled immediately
+
+Because the daemon is expected to run as a single process, the per-vault queue is the source of truth for whether work is actually in flight in memory. The abort-before-queue behavior is for stale DB state and "start fresh" semantics, not for cancelling an active runner.
+
+If hard cancellation is added later, the Git execution layer needs cancellation support.
 
 ## Status Query
 
@@ -215,6 +305,7 @@ Return:
 - step
 - error
 - commit sha
+- abort requested timestamp
 - timestamps
 
 If no active operation exists, return the most recent completed operation or an explicit idle status.
@@ -223,37 +314,60 @@ If no active operation exists, return the most recent completed operation or an 
 
 Add focused tests for:
 
+- daemon startup aborts all `queued` operations
+- daemon startup aborts all `running` operations
+- sync request aborts an existing active operation for the vault
+- sync request creates a fresh `queued/pull` operation after aborting stale active state
+- sync request does not abort a truly running in-process sync job
+- abort request marks a queued operation aborted or abort-requested
+- abort request sets `abortRequestedAt` for a running operation
+- runner stops after the current Git phase when abort was requested
+- user abort records `aborted/done`, not `failed/done`
+- user abort does not store `UNKNOWN_ERROR`
+- terminal operations are ignored when starting a new sync
 - starting a sync creates an active sync operation
-- duplicate sync requests for the same vault do not create two active operations
 - different vaults can sync independently
-- successful sync transitions to `success`
-- failed sync transitions to `failed` and stores an error code
+- successful sync transitions to `success/done`
+- failed sync transitions to `failed/done` and stores an error code
+- step transition failure stops before Git
 - vault update is rejected while active sync exists
 - vault delete is rejected while active sync exists
-- queued sync can be aborted
-- running sync behavior is explicit and tested
-- daemon startup enqueues `queued` operations
-- daemon startup reconciles stale `running` operations
-- commit succeeded but DB update failed
+- merge conflict records a conflict and marks the sync operation terminal
+
+Do not add resume-specific tests for MVP:
+
+- daemon startup enqueues old queued operations
+- daemon startup resumes stale running operations
+- commit succeeded but DB update failed then resumes from commit
 - push retry after daemon restart
+
+Those belong to a future smarter recovery design, not the current stateless-sync contract.
 
 ## Implementation Order
 
-1. Rename or extend sync persistence model to represent operations.
-2. Add active-sync unique index.
-3. Add repository methods:
-   - create queued operation
-   - claim/start operation
-   - update step
-   - complete success
-   - complete failure
-   - find active operation by vault
-   - find resumable operations
-4. Add queue service using `p-queue`.
-5. Update `SyncVaultCommand` to create/claim/update/finalize a sync operation.
-6. Update vault update/delete commands to reject mutation while active sync exists.
-7. Implement `GetSyncStatusQuery`.
-8. Implement basic abort for queued operations.
-9. Add startup reconciliation.
-10. Add recovery logic that inspects git state before resuming.
-11. Add tests for concurrency, transitions, and recovery.
+1. Add a startup cleanup service/hook that calls `abortAllActiveSyncOperations`.
+2. Add `abortRequestedAt` to `sync_operations`.
+3. Add repository methods for requesting abort, checking abort, and finalizing abort.
+4. Add runner checks before and between Git phases.
+5. Add a small `SyncQueue` helper for per-vault queue state, such as `hasVaultWork(vaultId)`, using `queue.pending` and `queue.size`.
+6. Update `SyncVaultHandler` so idle/stale active operations are aborted before `queueSyncOperation`, but busy in-process operations are not aborted.
+7. Add an abort command/API endpoint for queued/running operations.
+8. Keep the existing per-vault `SyncQueue` flow.
+9. Keep `SyncJobRunner` starting from `pull`; do not add resume logic.
+10. Optionally rename step-recording methods to better express atomic step start.
+11. Implement `GetSyncStatusQuery`.
+12. Add conflict module scaffolding around `conflict_records`.
+13. Handle `MergeConflictError` in the runner by recording a conflict and marking the operation terminal.
+14. Add tests for startup abort, sync-call abort, cooperative user abort, in-process busy behavior, terminal history, transitions, and conflicts.
+
+## Future Recovery Option
+
+If the stateless model becomes painful, a future design can add smart resume. That would require:
+
+- non-terminal `interrupted` or `conflicted` statuses
+- clearer step semantics, possibly `currentStep` plus `lastCompletedStep`
+- Git-state inspection before deciding where to continue
+- careful handling for commit-created-but-not-recorded cases
+- remote containment checks before retrying push
+
+Do not build this until real usage shows the simple model is not enough.
