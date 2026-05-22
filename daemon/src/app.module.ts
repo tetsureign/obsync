@@ -9,6 +9,7 @@ import { AppExceptionFilter } from './common/filters/app-exception.filter';
 import { SyncModule } from './sync/sync.module';
 import { GitModule } from './git/git.module';
 import { SyncQueueModule } from './sync-queue/sync-queue.module';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SyncQueueModule } from './sync-queue/sync-queue.module';
       provide: APP_FILTER,
       useClass: AppExceptionFilter,
     },
+    AppService,
   ],
 })
 export class AppModule {}
