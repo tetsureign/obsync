@@ -3,9 +3,10 @@ import { GitService } from '@/git/git.service';
 import { VaultRepository } from '@/vault/vault.repository';
 import { forwardRef, Inject } from '@nestjs/common';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
+import { SyncOperationPayload } from '../sync.types';
 
 export class GetGitStatusQuery {
-  constructor(public readonly vaultId: string) {}
+  constructor(public readonly vaultId: SyncOperationPayload['vaultId']) {}
 }
 
 @QueryHandler(GetGitStatusQuery)

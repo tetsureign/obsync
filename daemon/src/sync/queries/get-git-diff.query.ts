@@ -3,10 +3,11 @@ import { GitService } from '@/git/git.service';
 import { forwardRef, Inject } from '@nestjs/common';
 import { VaultRepository } from '@/vault/vault.repository';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
+import { SyncOperationPayload } from '../sync.types';
 
 export class GetGitDiffQuery {
   constructor(
-    public readonly vaultId: string,
+    public readonly vaultId: SyncOperationPayload['vaultId'],
     public readonly filePaths: string[],
   ) {}
 }

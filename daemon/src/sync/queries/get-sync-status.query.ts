@@ -1,10 +1,11 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { SyncQueue } from '@/sync-queue/sync-queue';
 import { SyncRepository } from '../sync.repository';
+import { SyncOperationPayload } from '../sync.types';
 
 export class GetSyncStatusQuery {
   constructor(
-    public readonly vaultId: string,
+    public readonly vaultId: SyncOperationPayload['vaultId'],
     public readonly lastNCompleted = 5,
   ) {}
 }
