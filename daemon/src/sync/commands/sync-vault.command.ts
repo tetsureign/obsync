@@ -28,12 +28,24 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
   ) {}
   private readonly logger = new Logger(SyncVaultHandler.name);
 
+  private async abortStaleSyncOperation(vaultId: string) {
+    const hasWorks = this.syncQueue.hasVaultWorks(vaultId);
+
+    if (hasWorks) {
+      return null;
+    }
+
+    return this.repository.abortActiveSyncOperation(vaultId);
+  }
+
   async execute(command: SyncVaultCommand) {
     try {
       const vaultInfo = await this.vaultRepository.findById(command.vaultId);
       if (!vaultInfo) {
         throw new VaultNotFoundError(command.vaultId);
       }
+
+      await this.abortStaleSyncOperation(command.vaultId);
 
       const queuedOperation = await this.repository.queueSyncOperation(
         vaultInfo.id,

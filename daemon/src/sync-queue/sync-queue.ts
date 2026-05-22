@@ -20,4 +20,9 @@ export class SyncQueue {
     const queue = this.getQueue(vaultId);
     return queue.add(fn, { priority });
   }
+
+  hasVaultWorks(vaultId: string) {
+    const queue = this.getQueue(vaultId);
+    return queue.size > 0 || queue.pending > 0;
+  }
 }
