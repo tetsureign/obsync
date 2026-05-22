@@ -99,6 +99,19 @@ export class SyncRepository {
       .returning();
   }
 
+  async getRecentCompletedSyncOperations(vaultId: string, limit: number) {
+    return await this.database.db
+      .select()
+      .from(syncOperations)
+      .where(
+        and(
+          eq(syncOperations.vaultId, vaultId),
+          inArray(syncOperations.status, ['aborted', 'failed', 'success']),
+        ),
+      )
+      .limit(limit);
+  }
+
   async queueSyncOperation(vaultId: string) {
     return await this.create({
       vaultId,

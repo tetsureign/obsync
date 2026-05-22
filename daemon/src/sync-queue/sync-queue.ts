@@ -23,6 +23,31 @@ export class SyncQueue {
 
   hasVaultWorks(vaultId: string) {
     const queue = this.getQueue(vaultId);
+
+    if (!queue) {
+      return false;
+    }
+
     return queue.size > 0 || queue.pending > 0;
+  }
+
+  getVaultQueueStatus(vaultId: string) {
+    const queue = this.getQueue(vaultId);
+
+    if (!queue) {
+      return {
+        hasInMemoryWork: false,
+        queuedCount: 0,
+        runningCount: 0,
+        runningTasks: [],
+      };
+    }
+
+    return {
+      hasInMemoryWork: queue.size > 0 || queue.pending > 0,
+      queuedCount: queue.size,
+      runningCount: queue.pending,
+      runningTasks: queue.runningTasks,
+    };
   }
 }
