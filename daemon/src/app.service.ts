@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { SyncRepository } from './sync/sync.repository';
-import { FailedAbortingAllSyncOperations } from './common/errors/failed-aborting-all-sync.error';
+import { AbortingAllSyncOperationsError } from './common/errors/aborting-all-sync.error';
 
 @Injectable()
 export class AppService implements OnApplicationBootstrap {
@@ -10,7 +10,7 @@ export class AppService implements OnApplicationBootstrap {
     try {
       return await this.syncRepository.abortAllActiveSyncOperations();
     } catch (queryError) {
-      throw new FailedAbortingAllSyncOperations(queryError);
+      throw new AbortingAllSyncOperationsError(queryError);
     }
   }
 }
