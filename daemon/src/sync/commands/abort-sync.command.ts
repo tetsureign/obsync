@@ -1,3 +1,21 @@
-// TODO: This will only cancel an in-progress sync in the queue
-// We should also consider how to handle cancellation of an in-progress sync that has already started executing (e.g. by sending a cancellation signal to the executing handler).
-// Or make it impossible to cancel a sync that has already started executing.
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { SyncOperationPayload } from '../sync.types';
+import { SyncRepository } from '../sync.repository';
+import { AbortSyncOperationError } from '../error/abort-sync.error';
+
+export class AbortSyncCommand {
+  constructor(public readonly vaultId: SyncOperationPayload['vaultId']) {}
+}
+
+@CommandHandler(AbortSyncCommand)
+export class AbortSyncHandler implements ICommandHandler<AbortSyncCommand> {
+  constructor(private syncRepository: SyncRepository) {}
+
+  async execute(command: AbortSyncCommand) {
+    try {
+      await this.syncRepository.abortActiveSyncOperation(command.vaultId);
+    } catch (queryError) {
+      throw new AbortSyncOperationError(command.vaultId, queryError);
+    }
+  }
+}
