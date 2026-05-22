@@ -32,17 +32,17 @@ export class SyncJobRunner {
     let commitSha: string | undefined;
 
     try {
-      await this.recordStepOrStop(operation, 'pull');
+      await this.startStepOrThrow(operation, 'pull');
       await this.gitService.assertValidVault(vault.localPath, vault.remote);
       await this.gitService.pull(vault.localPath);
 
-      await this.recordStepOrStop(operation, 'stage');
+      await this.startStepOrThrow(operation, 'stage');
       await this.gitService.stage(vault.localPath, filePaths);
 
-      await this.recordStepOrStop(operation, 'commit');
+      await this.startStepOrThrow(operation, 'commit');
       commitSha = await this.gitService.commit(vault.localPath, commitMessage);
 
-      await this.recordStepOrStop(operation, 'push');
+      await this.startStepOrThrow(operation, 'push');
       await this.gitService.push(vault.localPath);
 
       await this.recordSuccessBestEffort(operation, { commitSha });
@@ -53,12 +53,12 @@ export class SyncJobRunner {
     }
   }
 
-  private async recordStepOrStop(
+  private async startStepOrThrow(
     operation: SyncOperation,
     step: Exclude<SyncOperation['step'], 'done'>,
   ) {
     try {
-      const updatedOperation = await this.repository.runSyncOperation(
+      const updatedOperation = await this.repository.startSyncOperationStep(
         operation.id,
         step,
       );

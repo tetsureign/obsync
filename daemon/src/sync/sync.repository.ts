@@ -107,7 +107,7 @@ export class SyncRepository {
     });
   }
 
-  async runSyncOperation(
+  async startSyncOperationStep(
     id: string,
     step: Exclude<SyncOperation['step'], 'done'>,
   ) {
