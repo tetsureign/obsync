@@ -50,4 +50,15 @@ export class SyncQueue {
       runningTasks: queue.runningTasks,
     };
   }
+
+  abortVaultQueue(vaultId: string) {
+    const queue = this.getQueue(vaultId);
+
+    if (queue) {
+      queue.clear();
+      return true;
+    }
+
+    return false;
+  }
 }

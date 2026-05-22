@@ -86,17 +86,26 @@ export class SyncRepository {
           eq(syncOperations.vaultId, vaultId),
           inArray(syncOperations.status, ['queued', 'running']),
         ),
-      )
-      .returning()
-      .get();
+      );
+  }
+
+  async abortQueuedSyncOperation(vaultId: string) {
+    return await this.database.db
+      .update(syncOperations)
+      .set({ status: 'aborted', step: 'done' })
+      .where(
+        and(
+          eq(syncOperations.vaultId, vaultId),
+          inArray(syncOperations.status, ['queued']),
+        ),
+      );
   }
 
   async abortAllActiveSyncOperations() {
     return await this.database.db
       .update(syncOperations)
       .set({ status: 'aborted', step: 'done' })
-      .where(inArray(syncOperations.status, ['queued', 'running']))
-      .returning();
+      .where(inArray(syncOperations.status, ['queued', 'running']));
   }
 
   async getRecentCompletedSyncOperations(vaultId: string, limit: number) {
