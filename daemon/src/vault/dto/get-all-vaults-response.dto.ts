@@ -1,8 +1,8 @@
 import { createZodDto } from 'nestjs-zod';
 import { vaultResponseSchema } from './vault.schemas';
 
-const GetAllVaultsResponseSchema = vaultResponseSchema.array();
+const getAllVaultsResponseSchema = vaultResponseSchema.array();
 
 export class GetAllVaultsResponseDto extends createZodDto(
-  GetAllVaultsResponseSchema,
+  getAllVaultsResponseSchema,
 ) {}

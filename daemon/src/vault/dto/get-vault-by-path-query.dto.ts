@@ -1,10 +1,10 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
-const GetVaultByPathQuerySchema = z.object({
+const getVaultByPathQuerySchema = z.object({
   localPath: z.string(),
 });
 
 export class GetVaultByPathQueryDto extends createZodDto(
-  GetVaultByPathQuerySchema,
+  getVaultByPathQuerySchema,
 ) {}
