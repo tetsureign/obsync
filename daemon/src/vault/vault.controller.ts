@@ -11,14 +11,14 @@ import {
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ListVaultsQuery } from './queries/list-vaults.query';
 import { ZodSerializerDto } from 'nestjs-zod';
-import { GetAllVaultsDto } from './dto/get-all-vaults.dto';
+import { GetAllVaultsResponseDto } from './dto/get-all-vaults-response.dto';
 import { CreateVaultCommand } from './commands/create-vault.command';
-import { CreateVaultDto } from './dto/create-vault.dto';
+import { CreateVaultCommandDto } from './dto/create-vault-command.dto';
 import { VaultResponseDto } from './dto/vault-response.dto';
 import { GetVaultQuery } from './queries/get-vault.query';
 import { GetVaultParamsDto } from './dto/get-vault-params.dto';
 import { UpdateVaultCommand } from './commands/update-vault.command';
-import { UpdateVaultDto } from './dto/update-vault.dto';
+import { UpdateVaultCommandDto } from './dto/update-vault-command.dto';
 import { DeleteVaultCommand } from './commands/delete-vault.command';
 import { GetVaultByPathQuery } from './queries/get-vault-by-path.query';
 import { GetVaultByPathQueryDto } from './dto/get-vault-by-path-query.dto';
@@ -31,15 +31,15 @@ export class VaultController {
   ) {}
 
   @Get()
-  @ZodSerializerDto(GetAllVaultsDto)
-  async getAllVaults(): Promise<GetAllVaultsDto> {
+  @ZodSerializerDto(GetAllVaultsResponseDto)
+  async getAllVaults(): Promise<GetAllVaultsResponseDto> {
     return this.queryBus.execute(new ListVaultsQuery());
   }
 
   @Post()
   @ZodSerializerDto(VaultResponseDto)
   async createVault(
-    @Body() createVaultDto: CreateVaultDto,
+    @Body() createVaultDto: CreateVaultCommandDto,
   ): Promise<VaultResponseDto> {
     return this.commandBus.execute(
       new CreateVaultCommand(
@@ -74,7 +74,7 @@ export class VaultController {
   @ZodSerializerDto(VaultResponseDto)
   async updateVault(
     @Param() params: GetVaultParamsDto,
-    @Body() updateVaultDto: UpdateVaultDto,
+    @Body() updateVaultDto: UpdateVaultCommandDto,
   ): Promise<VaultResponseDto> {
     return this.commandBus.execute(
       new UpdateVaultCommand(

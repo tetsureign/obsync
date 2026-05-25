@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { SyncRepository } from './sync/sync.repository';
-import { AbortingAllSyncOperationsError } from './common/errors/aborting-all-sync.error';
+import { AbortingAllSyncOnBootstrapError } from './common/errors/aborting-all-sync-on-bootstrap.error';
 
 @Injectable()
 export class AppService implements OnApplicationBootstrap {
@@ -14,15 +14,15 @@ export class AppService implements OnApplicationBootstrap {
 
       if (result.rowsAffected > 0) {
         this.logger.warn(
-          `Aborted ${result.rowsAffected} active sync operation(s) on application startup.`,
+          `Aborted ${result.rowsAffected} dangling sync operation(s) on application startup.`,
         );
       } else {
         this.logger.log(
-          `No active sync operations found to abort on application startup.`,
+          `No dangling sync operations found to abort on application startup.`,
         );
       }
     } catch (error) {
-      throw new AbortingAllSyncOperationsError(error);
+      throw new AbortingAllSyncOnBootstrapError(error);
     }
   }
 }

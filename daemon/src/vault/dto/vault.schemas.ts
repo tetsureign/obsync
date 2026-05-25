@@ -15,16 +15,6 @@ export const vaultCoreSchema = z.object({
   conflictStrategy: vaultConflictStrategySchema,
 });
 
-export const createVaultSchema = vaultCoreSchema.extend({
-  branch: vaultCoreSchema.shape.branch.default('main'),
-  autoSync: vaultCoreSchema.shape.autoSync.default(false),
-  syncInterval: vaultCoreSchema.shape.syncInterval.default(5 * 60),
-  conflictStrategy:
-    vaultCoreSchema.shape.conflictStrategy.default('log-and-skip'),
-});
-
-export const updateVaultSchema = vaultCoreSchema.partial();
-
 export const vaultResponseSchema = vaultCoreSchema.extend({
   id: z.string(),
   isDirty: z.boolean(),
@@ -32,3 +22,13 @@ export const vaultResponseSchema = vaultCoreSchema.extend({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date().nullable(),
 });
+
+export const createVaultCommandSchema = vaultCoreSchema.extend({
+  branch: vaultCoreSchema.shape.branch.default('main'),
+  autoSync: vaultCoreSchema.shape.autoSync.default(false),
+  syncInterval: vaultCoreSchema.shape.syncInterval.default(5 * 60),
+  conflictStrategy:
+    vaultCoreSchema.shape.conflictStrategy.default('log-and-skip'),
+});
+
+export const updateVaultCommandSchema = vaultCoreSchema.partial();
