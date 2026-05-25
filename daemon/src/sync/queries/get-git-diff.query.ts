@@ -8,7 +8,7 @@ import { SyncOperationPayload } from '../sync.types';
 export class GetGitDiffQuery {
   constructor(
     public readonly vaultId: SyncOperationPayload['vaultId'],
-    public readonly filePaths: string[],
+    public readonly options: string[] | undefined,
   ) {}
 }
 
@@ -32,6 +32,6 @@ export class GetGitDiffHandler implements IQueryHandler<GetGitDiffQuery> {
       vaultInfo.remote,
     );
 
-    return this.gitService.diff(vaultInfo.localPath, query.filePaths);
+    return this.gitService.diff(vaultInfo.localPath, query.options);
   }
 }
