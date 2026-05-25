@@ -10,6 +10,11 @@ import { SyncVaultHandler } from './commands/sync-vault.command';
 import { VaultModule } from '@/vault/vault.module';
 import { SyncQueueModule } from '@/sync-queue/sync-queue.module';
 import { SyncJobRunner } from './sync-job.runner';
+import { AbortSyncHandler } from './commands/abort-sync.command';
+import { GetSyncStatusHandler } from './queries/get-sync-status.query';
+import { GetGitDiffHandler } from './queries/get-git-diff.query';
+import { GetGitStatusHandler } from './queries/get-git-status.query';
+import { GetSyncHistoryHandler } from './queries/get-sync-history.query';
 
 @Module({
   imports: [
@@ -20,12 +25,17 @@ import { SyncJobRunner } from './sync-job.runner';
   ],
   providers: [
     SyncRepository,
-    PullVaultHandler,
-    StageVaultHandler,
+    AbortSyncHandler,
     CommitVaultHandler,
+    PullVaultHandler,
     PushVaultHandler,
+    StageVaultHandler,
     SyncVaultHandler,
     SyncJobRunner,
+    GetGitDiffHandler,
+    GetGitStatusHandler,
+    GetSyncHistoryHandler,
+    GetSyncStatusHandler,
   ],
   exports: [SyncRepository],
 })
