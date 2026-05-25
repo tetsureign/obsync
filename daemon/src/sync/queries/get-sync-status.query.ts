@@ -1,7 +1,7 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { SyncQueue } from '@/sync-queue/sync-queue';
 import { SyncRepository } from '../sync.repository';
-import { SyncOperationPayload } from '../sync.types';
+import { SyncOperationPayload, SyncStatus } from '../sync.types';
 
 export class GetSyncStatusQuery {
   constructor(
@@ -17,7 +17,7 @@ export class GetSyncStatusHandler implements IQueryHandler<GetSyncStatusQuery> {
     private syncRepository: SyncRepository,
   ) {}
 
-  async execute(query: GetSyncStatusQuery) {
+  async execute(query: GetSyncStatusQuery): Promise<SyncStatus> {
     const activeOperation = await this.syncRepository.getActiveSyncOperation(
       query.vaultId,
     );
