@@ -9,6 +9,8 @@ import { SyncResponseDto } from './dto/sync-response.dto';
 import { GetVaultParamsDto } from '@/vault/dto/get-vault-params.dto';
 import { GetSyncStatusQuery } from './queries/get-sync-status.query';
 import { GetSyncStatusQueryDto } from './dto/get-sync-status-query.dto';
+import { GetSyncHistoryQuery } from './queries/get-sync-history.query';
+import { GetHistoryQueryResponseDto } from './dto/get-history-query-response.dto';
 
 @Controller('vault')
 export class SyncController {
@@ -32,7 +34,7 @@ export class SyncController {
     );
   }
 
-  @Get(':id/sync/status')
+  @Get(':id/status')
   async getSyncStatus(
     @Param() param: GetVaultParamsDto,
     @Body() query: GetSyncStatusQueryDto,
@@ -40,5 +42,13 @@ export class SyncController {
     return await this.queryBus.execute(
       new GetSyncStatusQuery(param.id, query.lastNCompletedSync),
     );
+  }
+
+  @Get(':id/syncs')
+  @ZodSerializerDto(GetHistoryQueryResponseDto)
+  async getSyncHistory(
+    @Param() param: GetVaultParamsDto,
+  ): Promise<SyncOperation[]> {
+    return await this.queryBus.execute(new GetSyncHistoryQuery(param.id));
   }
 }
