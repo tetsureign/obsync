@@ -15,6 +15,7 @@ import { GetSyncStatusHandler } from './queries/get-sync-status.query';
 import { GetGitDiffHandler } from './queries/get-git-diff.query';
 import { GetGitStatusHandler } from './queries/get-git-status.query';
 import { GetSyncHistoryHandler } from './queries/get-sync-history.query';
+import { SyncController } from './sync.controller';
 
 @Module({
   imports: [
@@ -38,5 +39,6 @@ import { GetSyncHistoryHandler } from './queries/get-sync-history.query';
     GetSyncStatusHandler,
   ],
   exports: [SyncRepository],
+  controllers: [SyncController],
 })
 export class SyncModule {}

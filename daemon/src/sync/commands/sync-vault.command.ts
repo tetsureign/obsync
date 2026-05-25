@@ -13,7 +13,7 @@ import { SyncQueueRecordPersistenceError } from '../error/sync-queue-record-pers
 export class SyncVaultCommand {
   constructor(
     public readonly vaultId: SyncOperationPayload['vaultId'],
-    public readonly filePaths: string[],
+    public readonly filePaths: string[] = ['.'],
     public readonly commitMessage = `auto commit at ${currentInstantIso()}`,
   ) {}
 }
