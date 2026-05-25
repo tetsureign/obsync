@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { QueryBus } from '@nestjs/cqrs/dist/query-bus';
 import { SyncVaultCommand } from './commands/sync-vault.command';
@@ -42,7 +42,7 @@ export class SyncController {
   @Get(':id/status')
   async getSyncStatus(
     @Param() param: GetVaultParamsDto,
-    @Body() query: GetSyncStatusQueryDto,
+    @Query() query: GetSyncStatusQueryDto,
   ): Promise<SyncStatus> {
     return await this.queryBus.execute(
       new GetSyncStatusQuery(param.id, query.lastNCompletedSync),
@@ -65,7 +65,7 @@ export class SyncController {
   @Get(':id/git-diff')
   async getGitDiff(
     @Param() param: GetVaultParamsDto,
-    @Body() query: GetGitDiffQueryDto,
+    @Query() query: GetGitDiffQueryDto,
   ): Promise<string> {
     return await this.queryBus.execute(
       new GetGitDiffQuery(param.id, query.options),

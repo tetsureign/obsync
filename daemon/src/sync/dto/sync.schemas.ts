@@ -13,11 +13,6 @@ export const syncCoreSchema = z.object({
   updatedAt: z.coerce.date().nullable(),
 });
 
-export const syncResponseSchema = syncCoreSchema.omit({
-  error: true,
-  commitSha: true,
-});
-
 export const syncVaultCommandSchema = z.object({
   filePaths: z.array(z.string()).default(['.']),
   commitMessage: z

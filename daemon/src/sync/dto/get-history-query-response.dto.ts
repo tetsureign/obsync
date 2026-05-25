@@ -1,7 +1,7 @@
-import { syncResponseSchema } from './sync.schemas';
+import { syncCoreSchema } from './sync.schemas';
 import { createZodDto } from 'nestjs-zod';
 
-const getHistoryQueryResponseSchema = syncResponseSchema.array();
+const getHistoryQueryResponseSchema = syncCoreSchema.array();
 
 export class GetHistoryQueryResponseDto extends createZodDto(
   getHistoryQueryResponseSchema,
