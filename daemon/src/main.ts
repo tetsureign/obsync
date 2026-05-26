@@ -30,6 +30,7 @@ async function bootstrap() {
     SwaggerModule.setup('api', app, cleanupOpenApiDoc(openApiDoc));
   }
 
+  await db.configure();
   await migrate(db.db, { migrationsFolder: 'drizzle' });
 
   await app.listen(port);

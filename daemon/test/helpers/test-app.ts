@@ -20,6 +20,7 @@ export async function createE2eApp(): Promise<{
   const app = module.createNestApplication();
   const db = module.get(Database);
 
+  await db.configure();
   await migrate(db.db, { migrationsFolder: 'drizzle' });
   await app.init();
 
