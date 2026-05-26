@@ -17,7 +17,7 @@ import { StatusResult } from 'simple-git';
 import { GetGitDiffQuery } from './queries/get-git-diff.query';
 import { GetGitDiffQueryDto } from './dto/get-git-diff-query.dto';
 
-@Controller('vault')
+@Controller('vaults')
 export class SyncController {
   constructor(
     private commandBus: CommandBus,
