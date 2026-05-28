@@ -33,6 +33,10 @@ async function bootstrap() {
   await db.configure();
   await migrate(db.db, { migrationsFolder: 'drizzle' });
 
+  app.enableCors({
+    origin: `127.0.0.1`,
+  });
+
   await app.listen(port);
 }
 
