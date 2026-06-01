@@ -17,7 +17,7 @@
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "package:bundle": "pnpm build && node scripts/build-sea-bundle.mjs",
-    "package:sea": "pnpm package:bundle && pkg --sea sea/main.cjs --targets host --output sea/obsync-daemon && rm -rf sea/drizzle && cp -R drizzle sea/drizzle",
+    "package:sea": "pnpm package:bundle && pkg --config .pkgrc.json sea/main.cjs --output sea/obsync-daemon && rm -rf sea/drizzle && cp -R drizzle sea/drizzle",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "test:cov": "vitest run --config vitest.config.ts --coverage",
