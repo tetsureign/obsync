@@ -5,6 +5,7 @@ import { SyncOperationPayload } from '../sync.types';
 import { SyncRepository } from '../sync.repository';
 import { AbortSyncOperationError } from '../error/abort-sync.error';
 import { SyncQueue } from '@/sync-queue/sync-queue';
+import { getSqliteRowsAffected } from '@/database/sqlite-result';
 
 export class AbortSyncCommand {
   constructor(public readonly vaultId: SyncOperationPayload['vaultId']) {}
@@ -25,7 +26,7 @@ export class AbortSyncHandler implements ICommandHandler<AbortSyncCommand> {
         command.vaultId,
       );
 
-      if (dbResult.rowsAffected === 0) {
+      if (getSqliteRowsAffected(dbResult) === 0) {
         throw new AbortSyncOperationError(
           command.vaultId,
           'No queued sync operation found to abort',

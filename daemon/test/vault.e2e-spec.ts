@@ -7,6 +7,8 @@ import { createE2eApp } from './helpers/test-app';
 
 // TODO: More test cases regarding sync behaviors. Maybe I should split this to several files
 describe('Vault API', () => {
+  const nonexistentVaultId = '00000000-0000-4000-8000-000000000000';
+
   let app: INestApplication<App>;
   let resetDb: () => Promise<void>;
   let cleanup: () => Promise<void>;
@@ -334,7 +336,7 @@ describe('Vault API', () => {
 
     it('rejects nonexistent vault update id', async () => {
       await request(app.getHttpServer())
-        .patch('/vaults/invalid-id')
+        .patch(`/vaults/${nonexistentVaultId}`)
         .send({ branch: 'develop' })
         .expect(404)
         .expect((res) => {
@@ -348,7 +350,7 @@ describe('Vault API', () => {
 
     it('rejects nonexistent vault delete id', async () => {
       await request(app.getHttpServer())
-        .delete('/vaults/invalid-id')
+        .delete(`/vaults/${nonexistentVaultId}`)
         .expect(404)
         .expect((res) => {
           expect(res.body).toEqual(

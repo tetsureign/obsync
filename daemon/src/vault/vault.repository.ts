@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/await-thenable -- Drizzle's node:sqlite adapter exposes sync terminal methods, but repositories keep async boundaries for Nest/service consistency. */
 import { Injectable } from '@nestjs/common';
 
 import { Database } from '@/database/database';
@@ -6,6 +7,7 @@ import { eq, inArray, and, notExists } from 'drizzle-orm';
 import { NewVault } from './vault.types';
 import { VaultNotFoundError } from './errors/vault-not-found.error';
 import { SyncOperationIsRunningError } from './errors/sync-operation-running.error';
+import { getSqliteRowsAffected } from '@/database/sqlite-result';
 
 @Injectable()
 export class VaultRepository {
@@ -77,7 +79,7 @@ export class VaultRepository {
       .where(and(eq(vaults.id, id), notExists(this.getActiveSyncSubquery(id))))
       .run();
 
-    if (result.rowsAffected > 0) {
+    if (getSqliteRowsAffected(result) > 0) {
       return true;
     }
 

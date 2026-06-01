@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '@/app.module';
 import { Database } from '@/database/database';
-import { migrate } from 'drizzle-orm/libsql/migrator';
+import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 import { clearTestData, createTestDbFile, removeTestDbFile } from './test-db';
 
 export async function createE2eApp(): Promise<{
@@ -21,7 +21,7 @@ export async function createE2eApp(): Promise<{
   const db = module.get(Database);
 
   await db.configure();
-  await migrate(db.db, { migrationsFolder: 'drizzle' });
+  migrate(db.db, { migrationsFolder: 'drizzle' });
   await app.init();
 
   return {

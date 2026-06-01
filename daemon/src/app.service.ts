@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { SyncRepository } from './sync/sync.repository';
 import { AbortingAllSyncOnBootstrapError } from './common/errors/aborting-all-sync-on-bootstrap.error';
+import { getSqliteRowsAffected } from './database/sqlite-result';
 
 @Injectable()
 export class AppService implements OnApplicationBootstrap {
@@ -11,10 +12,11 @@ export class AppService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     try {
       const result = await this.syncRepository.abortAllActiveSyncOperations();
+      const abortedCount = getSqliteRowsAffected(result);
 
-      if (result.rowsAffected > 0) {
+      if (abortedCount > 0) {
         this.logger.warn(
-          `Aborted ${result.rowsAffected} dangling sync operation(s) on application startup.`,
+          `Aborted ${abortedCount} dangling sync operation(s) on application startup.`,
         );
       } else {
         this.logger.log(

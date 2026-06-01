@@ -1,10 +1,10 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { VaultRepository } from '../vault.repository';
 import { UpdateVaultPayload } from '../vault.types';
-import { LibsqlError } from '@libsql/client';
 import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
 import { VaultNotFoundError } from '../errors/vault-not-found.error';
 import { DrizzleQueryError } from 'drizzle-orm';
+import { isSqliteUniqueConstraintError } from '@/database/sqlite-error';
 
 export class UpdateVaultCommand {
   constructor(
@@ -38,15 +38,10 @@ export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
 
       return updatedVault;
     } catch (error) {
-      if (error instanceof DrizzleQueryError) {
-        const cause = error.cause;
+      const cause = error instanceof DrizzleQueryError ? error.cause : error;
 
-        if (
-          cause instanceof LibsqlError &&
-          cause.extendedCode === 'SQLITE_CONSTRAINT_UNIQUE'
-        ) {
-          throw new VaultAlreadyExistsError(command.name ?? '');
-        }
+      if (isSqliteUniqueConstraintError(cause)) {
+        throw new VaultAlreadyExistsError(command.name ?? '');
       }
 
       throw error;

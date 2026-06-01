@@ -4,9 +4,11 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { Database } from './database/database';
-import { migrate } from 'drizzle-orm/libsql/migrator';
+import { migrate } from 'drizzle-orm/node-sqlite/migrator';
+import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
@@ -31,7 +33,14 @@ async function bootstrap() {
   }
 
   await db.configure();
-  await migrate(db.db, { migrationsFolder: 'drizzle' });
+
+  logger.log('Starting database migrations...');
+  try {
+    migrate(db.db, { migrationsFolder: 'drizzle' });
+  } catch (error) {
+    logger.error('Error occurred while running database migrations:', error);
+  }
+  logger.log('Database migrations completed.');
 
   app.enableCors({
     origin: `127.0.0.1`,
