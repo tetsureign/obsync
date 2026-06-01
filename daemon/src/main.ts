@@ -46,7 +46,7 @@ async function bootstrap() {
     origin: `127.0.0.1`,
   });
 
-  await app.listen(port);
+  await app.listen(port, '127.0.0.1');
 }
 
 void bootstrap();
