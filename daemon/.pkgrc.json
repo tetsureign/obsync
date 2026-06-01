@@ -1,4 +1,5 @@
 {
   "sea": true,
-  "targets": ["host"]
+  "targets": ["host"],
+  "compress": "zstd"
 }
