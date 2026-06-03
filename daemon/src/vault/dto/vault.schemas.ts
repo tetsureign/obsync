@@ -1,13 +1,30 @@
 import { z } from 'zod';
+import path from 'path';
 
 export const vaultConflictStrategySchema = z.enum([
   'log-and-skip',
   'stash-and-retry',
 ]);
 
+// Regex matches standard Unix absolute paths or Windows drive letter paths
+const absolutePathRegex = /^([a-zA-Z]:\\|\/)[^<>:"|?*]*$/;
+
 export const vaultCoreSchema = z.object({
   name: z.string(),
-  localPath: z.string(),
+  localPath: z
+    .string()
+    .regex(absolutePathRegex)
+    // Prevent path traversal by disallowing segments like '..' or '.'
+    .refine(
+      (val) => {
+        const segments = val.split(/[/\\]/);
+        return !segments.includes('..') && !segments.includes('.');
+      },
+      {
+        message: 'Path traversal (.. or .) is not allowed',
+      },
+    )
+    .transform((val) => path.normalize(val)),
   remote: z.string(),
   branch: z.string(),
   autoSync: z.boolean(),
