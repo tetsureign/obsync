@@ -1,3 +1,5 @@
+// TODO: call git and validate with git
+
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { VaultRepository } from '../vault.repository';
 import { UpdateVaultPayload } from '../vault.types';

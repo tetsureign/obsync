@@ -34,7 +34,12 @@ async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Vault { action } => println!("vault command: todo"),
+        Commands::Vault { action } => match action {
+            VaultCommands::List => println!("list vaults: todo"),
+            VaultCommands::Add { name, path, remote } => {
+                println!("add vault: name={name}, path={path}, remote={remote}: todo")
+            }
+        },
         Commands::Sync { vault_id } => println!("sync {vault_id}: todo"),
     }
 }
