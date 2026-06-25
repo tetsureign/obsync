@@ -85,7 +85,7 @@ export class SyncJobRunner {
   ) {
     try {
       await this.persistFinalStateWithRetry(operation.vaultId, async () => {
-        const updatedOperation = await this.repository.completeSyncOperation(
+        const updatedOperation = await this.repository.succeedSyncOperation(
           operation.id,
           payload,
         );

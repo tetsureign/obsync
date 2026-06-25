@@ -82,7 +82,7 @@ export class SyncRepository {
   async abortActiveSyncOperation(vaultId: string) {
     return await this.database.db
       .update(syncOperations)
-      .set({ status: 'aborted', step: 'done' })
+      .set({ status: 'aborted' })
       .where(
         and(
           eq(syncOperations.vaultId, vaultId),
@@ -94,7 +94,7 @@ export class SyncRepository {
   async abortQueuedSyncOperation(vaultId: string) {
     return await this.database.db
       .update(syncOperations)
-      .set({ status: 'aborted', step: 'done' })
+      .set({ status: 'aborted' })
       .where(
         and(
           eq(syncOperations.vaultId, vaultId),
@@ -106,7 +106,7 @@ export class SyncRepository {
   async abortAllActiveSyncOperations() {
     return await this.database.db
       .update(syncOperations)
-      .set({ status: 'aborted', step: 'done' })
+      .set({ status: 'aborted' })
       .where(inArray(syncOperations.status, ['queued', 'running']));
   }
 
@@ -162,7 +162,7 @@ export class SyncRepository {
       .get();
   }
 
-  async completeSyncOperation(
+  async succeedSyncOperation(
     id: string,
     payload: Pick<SyncOperation, 'commitSha'>,
   ) {
@@ -188,7 +188,6 @@ export class SyncRepository {
       .update(syncOperations)
       .set({
         status: 'failed',
-        step: 'done',
         ...payload,
       })
       .where(
