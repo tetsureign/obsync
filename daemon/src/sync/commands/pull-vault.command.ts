@@ -1,5 +1,5 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { SyncOperationPayload } from '../sync.types';
+import { SyncOperation } from '../sync.types';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
@@ -8,7 +8,7 @@ import { NetworkError } from '@/git/errors/network.error';
 import { forwardRef, Inject } from '@nestjs/common';
 
 export class PullVaultCommand {
-  constructor(public readonly vaultId: SyncOperationPayload['vaultId']) {}
+  constructor(public readonly vaultId: SyncOperation['vaultId']) {}
 }
 
 @CommandHandler(PullVaultCommand)

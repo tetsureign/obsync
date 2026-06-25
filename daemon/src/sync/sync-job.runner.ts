@@ -6,7 +6,7 @@ import { DrizzleQueryError } from 'drizzle-orm';
 import pRetry from 'p-retry';
 import { SyncOperationPersistenceError } from './error/sync-operation-persistence.error';
 import { SyncRepository } from './sync.repository';
-import { SyncOperation, SyncOperationPayload } from './sync.types';
+import { SyncOperation } from './sync.types';
 import { SyncStepTransitionError } from './error/sync-step-transition.error';
 import { SyncSuccessPersistenceError } from './error/sync-success-persistence.error';
 import { SyncFailurePersistenceError } from './error/sync-failure-persistence.error';
@@ -29,7 +29,7 @@ export class SyncJobRunner {
 
   async run(job: SyncJob) {
     const { operation, vault, filePaths, commitMessage } = job;
-    let commitSha: string | undefined;
+    let commitSha: string | null = null;
 
     try {
       await this.startStepOrThrow(operation, 'pull');
@@ -81,7 +81,7 @@ export class SyncJobRunner {
 
   private async recordSuccessBestEffort(
     operation: SyncOperation,
-    payload: Pick<SyncOperationPayload, 'commitSha'>,
+    payload: Pick<SyncOperation, 'commitSha'>,
   ) {
     try {
       await this.persistFinalStateWithRetry(operation.vaultId, async () => {
@@ -114,7 +114,7 @@ export class SyncJobRunner {
   private async recordFailureBestEffort(
     operation: SyncOperation,
     syncError: unknown,
-    payload: Pick<SyncOperationPayload, 'commitSha'>,
+    payload: Pick<SyncOperation, 'commitSha'>,
   ) {
     try {
       await this.persistFinalStateWithRetry(operation.vaultId, async () => {

@@ -1,14 +1,14 @@
 // MVP--abort queued operations only
 
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { SyncOperationPayload } from '../sync.types';
+import { SyncOperation } from '../sync.types';
 import { SyncRepository } from '../sync.repository';
 import { AbortSyncOperationError } from '../error/abort-sync.error';
 import { SyncQueue } from '@/sync-queue/sync-queue';
 import { getSqliteRowsAffected } from '@/database/sqlite-result';
 
 export class AbortSyncCommand {
-  constructor(public readonly vaultId: SyncOperationPayload['vaultId']) {}
+  constructor(public readonly vaultId: SyncOperation['vaultId']) {}
 }
 
 @CommandHandler(AbortSyncCommand)

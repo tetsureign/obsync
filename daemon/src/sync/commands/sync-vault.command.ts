@@ -1,6 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { SyncRepository } from '../sync.repository';
-import { SyncOperationPayload } from '../sync.types';
+import { SyncOperation } from '../sync.types';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { VaultRepository } from '@/vault/vault.repository';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
@@ -12,7 +12,7 @@ import { SyncQueueRecordPersistenceError } from '../error/sync-queue-record-pers
 
 export class SyncVaultCommand {
   constructor(
-    public readonly vaultId: SyncOperationPayload['vaultId'],
+    public readonly vaultId: SyncOperation['vaultId'],
     public readonly filePaths: string[] = ['.'],
     public readonly commitMessage = `auto commit at ${currentInstantIso()}`,
   ) {}

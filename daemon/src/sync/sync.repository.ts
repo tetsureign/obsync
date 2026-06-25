@@ -3,7 +3,7 @@ import { Database } from '@/database/database';
 import { Injectable } from '@nestjs/common';
 import { eq, asc, and, inArray, ne } from 'drizzle-orm';
 import { syncOperations } from '@/database/schema';
-import { NewSyncOperation, SyncOperation } from './sync.types';
+import { PartialSyncOperation, SyncOperation } from './sync.types';
 import { getSqliteRowsAffected } from '@/database/sqlite-result';
 
 @Injectable()
@@ -23,7 +23,7 @@ export class SyncRepository {
       .get();
   }
 
-  async create(data: NewSyncOperation) {
+  async create(data: PartialSyncOperation) {
     return await this.database.db
       .insert(syncOperations)
       .values(data)
@@ -32,7 +32,7 @@ export class SyncRepository {
   }
 
   // Might not be needed since we should use specific methods for updating sync operation status/step, but it's here just in case
-  private async updateById(id: string, data: Partial<NewSyncOperation>) {
+  private async updateById(id: string, data: Partial<PartialSyncOperation>) {
     return await this.database.db
       .update(syncOperations)
       .set(data)
@@ -164,12 +164,12 @@ export class SyncRepository {
 
   async completeSyncOperation(
     id: string,
-    payload: Pick<NewSyncOperation, 'error' | 'commitSha'>,
+    payload: Pick<SyncOperation, 'commitSha'>,
   ) {
     return await this.database.db
       .update(syncOperations)
       .set({
-        status: payload.error ? 'failed' : 'success',
+        status: 'success',
         step: 'done',
         ...payload,
       })
@@ -182,7 +182,7 @@ export class SyncRepository {
 
   async failSyncOperation(
     id: string,
-    payload: Pick<NewSyncOperation, 'error' | 'commitSha'>,
+    payload: Pick<SyncOperation, 'error' | 'commitSha'>,
   ) {
     return await this.database.db
       .update(syncOperations)

@@ -1,9 +1,9 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { SyncRepository } from '../sync.repository';
-import { SyncOperationPayload } from '../sync.types';
+import { SyncOperation } from '../sync.types';
 
 export class GetSyncHistoryQuery {
-  constructor(public readonly vaultId: SyncOperationPayload['vaultId']) {}
+  constructor(public readonly vaultId: SyncOperation['vaultId']) {}
 }
 
 @QueryHandler(GetSyncHistoryQuery)

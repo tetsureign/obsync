@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { Database } from '@/database/database';
 import { syncOperations, vaults } from '@/database/schema';
 import { eq, inArray, and, notExists } from 'drizzle-orm';
-import { NewVault } from './vault.types';
+import { PartialVault } from './vault.types';
 import { VaultNotFoundError } from './errors/vault-not-found.error';
 import { SyncOperationIsRunningError } from './errors/sync-operation-running.error';
 import { getSqliteRowsAffected } from '@/database/sqlite-result';
@@ -47,11 +47,11 @@ export class VaultRepository {
       .get();
   }
 
-  async create(data: NewVault) {
+  async create(data: PartialVault) {
     return await this.database.db.insert(vaults).values(data).returning().get();
   }
 
-  async updateById(id: string, data: Partial<NewVault>) {
+  async updateById(id: string, data: Partial<PartialVault>) {
     const updatedVault = await this.database.db
       .update(vaults)
       .set(data)
