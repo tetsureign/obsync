@@ -4,6 +4,8 @@ import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
 import { forwardRef, Inject } from '@nestjs/common';
+import { SyncOperationStillRunningError } from '../error/sync-still-running.error';
+import { SyncRepository } from '../sync.repository';
 
 export class StageVaultCommand {
   constructor(
@@ -18,6 +20,7 @@ export class StageVaultHandler implements ICommandHandler<StageVaultCommand> {
     @Inject(forwardRef(() => VaultRepository))
     private vaultRepository: VaultRepository,
     private gitService: GitService,
+    private syncRepository: SyncRepository,
   ) {}
 
   async execute(command: StageVaultCommand) {
@@ -32,6 +35,10 @@ export class StageVaultHandler implements ICommandHandler<StageVaultCommand> {
       vaultInfo.remote,
     );
 
-    await this.gitService.stage(vaultInfo.localPath, command.filePaths);
+    if (await this.syncRepository.getActiveSyncOperation(command.vaultId)) {
+      throw new SyncOperationStillRunningError(command.vaultId, 'stage');
+    }
+
+    return await this.gitService.stage(vaultInfo.localPath, command.filePaths);
   }
 }

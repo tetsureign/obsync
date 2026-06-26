@@ -19,3 +19,11 @@ export const syncVaultCommandSchema = z.object({
     .string()
     .default(() => `auto commit at ${currentInstantIso()}`),
 });
+
+export const stageVaultCommandSchema = syncVaultCommandSchema.pick({
+  filePaths: true,
+});
+
+export const commitVaultCommandSchema = syncVaultCommandSchema.pick({
+  commitMessage: true,
+});

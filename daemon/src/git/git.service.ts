@@ -7,6 +7,7 @@ import { RemoteAuthError } from './errors/remote-auth.error';
 import { NetworkError } from './errors/network.error';
 import { GitOperationError } from './errors/git-operation.error';
 import { DirtyWorkingTreeError } from './errors/dirty-working-tree.error';
+import { InvalidFilePathsError } from './errors/invalid-file-paths.error';
 
 @Injectable()
 export class GitService {
@@ -17,6 +18,7 @@ export class GitService {
     'Please commit your changes or stash them';
   private readonly notADirectory =
     'Cannot use simple-git on a directory that does not exist';
+  private readonly invalidFilePaths = 'fatal: pathspec';
 
   async assertValidVault(localPath: string, expectedRemoteUrl: string) {
     await this.runGitOperation(localPath, 'check-valid-vault', async (git) => {
@@ -38,65 +40,81 @@ export class GitService {
   }
 
   async getStatus(localPath: string) {
-    return await this.runGitOperation(localPath, 'status', async (git) => {
-      return await git.status();
-    });
+    return await this.runGitOperation(
+      localPath,
+      'status',
+      async (git) => await git.status(),
+    );
   }
 
   async pull(localPath: string) {
-    await this.runGitOperation(localPath, 'pull', async (git) => {
-      await git.pull();
-    });
+    return await this.runGitOperation(
+      localPath,
+      'pull',
+      async (git) => await git.pull(),
+    );
   }
 
   async stage(localPath: string, filePaths: string[]) {
-    await this.runGitOperation(localPath, 'stage', async (git) => {
-      await git.add(filePaths);
-    });
+    return await this.runGitOperation(
+      localPath,
+      'stage',
+      async (git) => await git.add(filePaths),
+      filePaths,
+    );
   }
 
   async commit(localPath: string, message: string) {
-    return await this.runGitOperation(localPath, 'commit', async (git) => {
-      const result = await git.commit(message);
-      return result.commit;
-    });
+    return await this.runGitOperation(
+      localPath,
+      'commit',
+      async (git) => await git.commit(message),
+    );
   }
 
   async push(localPath: string) {
-    await this.runGitOperation(localPath, 'push', async (git) => {
-      await git.push();
-    });
+    return await this.runGitOperation(
+      localPath,
+      'push',
+      async (git) => await git.push(),
+    );
   }
 
   async diff(localPath: string, options: string[] | undefined) {
-    return await this.runGitOperation(localPath, 'diff', async (git) => {
-      const diff = await git.diff(options);
-      return diff;
-    });
+    return await this.runGitOperation(
+      localPath,
+      'diff',
+      async (git) => await git.diff(options),
+    );
   }
 
   async stash(localPath: string) {
-    await this.runGitOperation(localPath, 'stash', async (git) => {
-      await git.stash();
-    });
+    return await this.runGitOperation(
+      localPath,
+      'stash',
+      async (git) => await git.stash(),
+    );
   }
 
   async stashPop(localPath: string) {
-    await this.runGitOperation(localPath, 'stash-pop', async (git) => {
-      await git.stash(['pop']);
-    });
+    return await this.runGitOperation(
+      localPath,
+      'stash-pop',
+      async (git) => await git.stash(['pop']),
+    );
   }
 
   private async runGitOperation<T>(
     localPath: string,
     operationName: string,
     operation: (git: SimpleGit) => Promise<T>,
+    filePaths?: string[],
   ): Promise<T> {
     try {
       const git = simpleGit({ baseDir: localPath });
       return await operation(git);
     } catch (error) {
-      this.handleGitError(localPath, error, operationName);
+      this.handleGitError(localPath, error, operationName, filePaths);
     }
   }
 
@@ -104,6 +122,7 @@ export class GitService {
     localPath: string,
     error: unknown,
     operation: string,
+    filePaths?: string[],
   ): never {
     if (error instanceof GitError) {
       if (error.message.includes(this.conflictErrorString))
@@ -120,6 +139,14 @@ export class GitService {
 
       if (error.message.includes(this.notADirectory))
         throw new NotAGitRepoError(localPath);
+
+      if (error.message.includes(this.invalidFilePaths) && filePaths)
+        throw new InvalidFilePathsError(
+          localPath,
+          error.message,
+          operation,
+          filePaths,
+        );
 
       throw new GitOperationError(localPath, error.message, operation);
     }

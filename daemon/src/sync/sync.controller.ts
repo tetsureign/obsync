@@ -16,6 +16,12 @@ import { GetGitStatusQuery } from './queries/get-git-status.query';
 import { StatusResult } from 'simple-git';
 import { GetGitDiffQuery } from './queries/get-git-diff.query';
 import { GetGitDiffQueryDto } from './dto/get-git-diff-query.dto';
+import { PullVaultCommand } from './commands/pull-vault.command';
+import { StageVaultCommand } from './commands/stage-vault.command';
+import { StageVaultCommandDto } from './dto/stage-vault-command.dto';
+import { CommitVaultCommand } from './commands/commit-vault.command';
+import { CommitVaultCommandDto } from './dto/commit-vault-command.dto';
+import { PushVaultCommand } from './commands/push-vault.command';
 
 @Controller('vaults')
 export class SyncController {
@@ -37,6 +43,11 @@ export class SyncController {
         syncVaultDto.commitMessage,
       ),
     );
+  }
+
+  @Post(':id/abort')
+  async abortSync(@Param() params: GetVaultParamsDto): Promise<boolean> {
+    return await this.commandBus.execute(new AbortSyncCommand(params.id));
   }
 
   @Get(':id/status')
@@ -72,8 +83,33 @@ export class SyncController {
     );
   }
 
-  @Post(':id/abort')
-  async abortSync(@Param() params: GetVaultParamsDto): Promise<boolean> {
-    return await this.commandBus.execute(new AbortSyncCommand(params.id));
+  @Post(':id/git-pull')
+  async pullVault(@Param() params: GetVaultParamsDto): Promise<boolean> {
+    return await this.commandBus.execute(new PullVaultCommand(params.id));
+  }
+
+  @Post(':id/git-stage')
+  async stageVault(
+    @Param() params: GetVaultParamsDto,
+    @Body() stageVaultDto: StageVaultCommandDto,
+  ): Promise<boolean> {
+    return await this.commandBus.execute(
+      new StageVaultCommand(params.id, stageVaultDto.filePaths),
+    );
+  }
+
+  @Post(':id/git-commit')
+  async commitVault(
+    @Param() params: GetVaultParamsDto,
+    @Body() commitVaultDto: CommitVaultCommandDto,
+  ): Promise<boolean> {
+    return await this.commandBus.execute(
+      new CommitVaultCommand(params.id, commitVaultDto.commitMessage),
+    );
+  }
+
+  @Post(':id/git-push')
+  async pushVault(@Param() params: GetVaultParamsDto): Promise<boolean> {
+    return await this.commandBus.execute(new PushVaultCommand(params.id));
   }
 }

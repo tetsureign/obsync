@@ -5,6 +5,8 @@ import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
 import { currentInstantIso } from '@/common/utils/temporal';
 import { forwardRef, Inject } from '@nestjs/common';
+import { SyncRepository } from '../sync.repository';
+import { SyncOperationStillRunningError } from '../error/sync-still-running.error';
 
 export class CommitVaultCommand {
   constructor(
@@ -19,6 +21,7 @@ export class CommitVaultHandler implements ICommandHandler<CommitVaultCommand> {
     @Inject(forwardRef(() => VaultRepository))
     private vaultRepository: VaultRepository,
     private gitService: GitService,
+    private syncRepository: SyncRepository,
   ) {}
 
   async execute(command: CommitVaultCommand) {
@@ -32,6 +35,10 @@ export class CommitVaultHandler implements ICommandHandler<CommitVaultCommand> {
       vaultInfo.localPath,
       vaultInfo.remote,
     );
+
+    if (await this.syncRepository.getActiveSyncOperation(command.vaultId)) {
+      throw new SyncOperationStillRunningError(command.vaultId, 'commit');
+    }
 
     return await this.gitService.commit(
       vaultInfo.localPath,

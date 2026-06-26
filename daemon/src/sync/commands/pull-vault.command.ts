@@ -6,6 +6,8 @@ import { GitService } from '@/git/git.service';
 import { MergeConflictError } from '@/git/errors/merge-conflict.error';
 import { NetworkError } from '@/git/errors/network.error';
 import { forwardRef, Inject } from '@nestjs/common';
+import { SyncOperationStillRunningError } from '../error/sync-still-running.error';
+import { SyncRepository } from '../sync.repository';
 
 export class PullVaultCommand {
   constructor(public readonly vaultId: SyncOperation['vaultId']) {}
@@ -17,6 +19,7 @@ export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
     @Inject(forwardRef(() => VaultRepository))
     private vaultRepository: VaultRepository,
     private gitService: GitService,
+    private syncRepository: SyncRepository,
   ) {}
 
   async execute(command: PullVaultCommand) {
@@ -31,8 +34,12 @@ export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
       vaultInfo.remote,
     );
 
+    if (await this.syncRepository.getActiveSyncOperation(command.vaultId)) {
+      throw new SyncOperationStillRunningError(command.vaultId, 'pull');
+    }
+
     try {
-      await this.gitService.pull(vaultInfo.localPath);
+      return await this.gitService.pull(vaultInfo.localPath);
     } catch (error) {
       if (error instanceof MergeConflictError) {
         // Call ConflictModule to resolve the conflict and retry pulling
