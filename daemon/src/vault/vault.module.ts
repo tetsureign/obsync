@@ -8,9 +8,10 @@ import { GetVaultHandler } from './queries/get-vault.query';
 import { ListVaultsHandler } from './queries/list-vaults.query';
 import { VaultController } from './vault.controller';
 import { GetVaultByPathHandler } from './queries/get-vault-by-path.query';
+import { GitModule } from '@/git/git.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, GitModule],
   providers: [
     VaultRepository,
     CreateVaultHandler,

@@ -1,11 +1,10 @@
-// TODO: call git and validate with git
-
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { VaultRepository } from '../vault.repository';
 import { VaultPayload } from '../vault.types';
 import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { isSqliteUniqueConstraintError } from '@/database/sqlite-error';
+import { GitService } from '@/git/git.service';
 export class CreateVaultCommand {
   constructor(
     public readonly name: VaultPayload['name'],
@@ -19,10 +18,15 @@ export class CreateVaultCommand {
 }
 @CommandHandler(CreateVaultCommand)
 export class CreateVaultHandler implements ICommandHandler<CreateVaultCommand> {
-  constructor(private repository: VaultRepository) {}
+  constructor(
+    private repository: VaultRepository,
+    private gitService: GitService,
+  ) {}
 
   async execute(command: CreateVaultCommand) {
     try {
+      await this.gitService.assertValidVault(command.localPath, command.remote);
+
       const newVault = await this.repository.create({
         name: command.name,
         localPath: command.localPath,

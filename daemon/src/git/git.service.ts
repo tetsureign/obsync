@@ -15,6 +15,8 @@ export class GitService {
   private readonly networkErrorString = 'Could not resolve host';
   private readonly dirtyWorkingTreeString =
     'Please commit your changes or stash them';
+  private readonly notADirectory =
+    'Cannot use simple-git on a directory that does not exist';
 
   async assertValidVault(localPath: string, expectedRemoteUrl: string) {
     await this.runGitOperation(localPath, 'check-valid-vault', async (git) => {
@@ -106,12 +108,18 @@ export class GitService {
     if (error instanceof GitError) {
       if (error.message.includes(this.conflictErrorString))
         throw new MergeConflictError(localPath, error.message, operation);
+
       if (error.message.includes(this.authenticationErrorString))
         throw new RemoteAuthError(localPath, error.message, operation);
+
       if (error.message.includes(this.networkErrorString))
         throw new NetworkError(localPath, error.message, operation);
+
       if (error.message.includes(this.dirtyWorkingTreeString))
         throw new DirtyWorkingTreeError(localPath, error.message, operation);
+
+      if (error.message.includes(this.notADirectory))
+        throw new NotAGitRepoError(localPath);
 
       throw new GitOperationError(localPath, error.message, operation);
     }
