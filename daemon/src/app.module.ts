@@ -10,6 +10,7 @@ import { SyncModule } from './sync/sync.module';
 import { GitModule } from './git/git.module';
 import { SyncQueueModule } from './sync-queue/sync-queue.module';
 import { AppService } from './app.service';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { AppService } from './app.service';
     GitModule,
     SyncQueueModule,
   ],
-  controllers: [],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_PIPE,
