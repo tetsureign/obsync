@@ -6,13 +6,7 @@ export type Vault = InferSelectModel<typeof vaults>;
 
 export type VaultPayload = Pick<
   PartialVault,
-  | 'name'
-  | 'localPath'
-  | 'remote'
-  | 'branch'
-  | 'autoSync'
-  | 'syncInterval'
-  | 'conflictStrategy'
+  'name' | 'localPath' | 'autoSync' | 'syncInterval' | 'conflictStrategy'
 >;
 
 export type UpdateVaultPayload = Partial<VaultPayload> & { id: string };

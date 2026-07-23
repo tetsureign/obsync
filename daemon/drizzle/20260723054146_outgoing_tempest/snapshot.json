@@ -1,0 +1,372 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "c861af2d-ae2e-445f-bdba-99881fc6fbfe",
+  "prevIds": [
+    "60e69528-54c2-4595-91cb-1e7f3cdf318c"
+  ],
+  "ddl": [
+    {
+      "name": "conflict_records",
+      "entityType": "tables"
+    },
+    {
+      "name": "sync_operations",
+      "entityType": "tables"
+    },
+    {
+      "name": "vaults",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "conflict_records"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "vault_id",
+      "entityType": "columns",
+      "table": "conflict_records"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "files",
+      "entityType": "columns",
+      "table": "conflict_records"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "strategy",
+      "entityType": "columns",
+      "table": "conflict_records"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "resolved",
+      "entityType": "columns",
+      "table": "conflict_records"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "conflict_records"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(unixepoch())",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "conflict_records"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "vault_id",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "step",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "error",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "commit_sha",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(unixepoch())",
+      "generated": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(unixepoch())",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "sync_operations"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "local_path",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "is_dirty",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "auto_sync",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "300",
+      "generated": null,
+      "name": "sync_interval",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'log-and-skip'",
+      "generated": null,
+      "name": "conflict_strategy",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_synced_at",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(unixepoch())",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "vaults"
+    },
+    {
+      "columns": [
+        "vault_id"
+      ],
+      "tableTo": "vaults",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_conflict_records_vault_id_vaults_id_fk",
+      "entityType": "fks",
+      "table": "conflict_records"
+    },
+    {
+      "columns": [
+        "vault_id"
+      ],
+      "tableTo": "vaults",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_sync_records_vault_id_vaults_id_fk",
+      "entityType": "fks",
+      "table": "sync_operations"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "conflict_records_pk",
+      "table": "conflict_records",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "sync_records_pk",
+      "table": "sync_operations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "vaults_pk",
+      "table": "vaults",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "vault_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"sync_operations\".\"status\" IN ('queued', 'running')",
+      "origin": "manual",
+      "name": "sync_operations_one_active_per_vault",
+      "entityType": "indexes",
+      "table": "sync_operations"
+    },
+    {
+      "columns": [
+        "name"
+      ],
+      "nameExplicit": false,
+      "name": "vaults_name_unique",
+      "entityType": "uniques",
+      "table": "vaults"
+    },
+    {
+      "columns": [
+        "local_path"
+      ],
+      "nameExplicit": false,
+      "name": "vaults_local_path_unique",
+      "entityType": "uniques",
+      "table": "vaults"
+    }
+  ],
+  "renames": []
+}

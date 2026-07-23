@@ -33,21 +33,20 @@ MVP remains remote-backed sync only. Local-only vaults are deferred.
 
 Already implemented:
 
-- `vaults.remote` is currently in Drizzle schema (to be removed/refactored).
-- `vaults.branch` is currently in Drizzle schema (to be removed/refactored).
-- `VaultModule` already imports `GitModule`.
-- `CreateVaultHandler` already calls `GitService` before inserting the DB row.
-- Sync commands currently validate vault path and Git state.
-- Existing vault API e2e tests cover CRUD validation, duplicate name/path behavior, and basic defaults.
+- **Schema Refactoring**: Removed `remote` and `branch` columns from `vaults` Drizzle schema (`daemon/src/database/schema.ts`).
+- **Git Helpers**: Added `validateVaultGitRepo`, `inspectExistingVault`, `getEffectiveRemote`, and `getEffectiveBranch` helpers to `GitService`.
+- **Daemon Handlers & DTOs**:
+  - `CreateVaultCommand` / `CreateVaultHandler` validates Git repo & effective remote before DB insert, and automatically infers vault `name` from path directory name if omitted.
+  - `UpdateVaultCommand` / `UpdateVaultHandler` updated to handle vault updates without `remote`/`branch`.
+  - `vaultCoreSchema`, `createVaultCommandSchema`, and response schemas updated.
+  - Sync commands (`commit`, `pull`, `push`, `stage`, etc.) updated to interact with `GitService` without DB-persisted `remote`/`branch`.
+- `VaultModule` imports `GitModule`.
 
 Still incomplete:
 
-- Remove `remote` and `branch` columns from Drizzle schema, migrations, and DTOs.
-- CLI `vault add` still requires positional `name path remote`.
-- `CreateVaultRequest` in the CLI still serializes required `remote` and optional `branch`.
-- Add dedicated `GitService` helper methods for reading runtime Git metadata (`getEffectiveRemote`, `getEffectiveBranch`).
-- `UpdateVaultCommand` / handler needs cleanup around removed `remote`/`branch` persistence.
-- No `obsync init` command exists yet.
+- CLI `vault add` implementation updates (`obsync vault add <path> [--name <name>]`) in Rust.
+- Dedicated integration tests for `CreateVaultHandler` / `UpdateVaultHandler` and updating e2e test fixtures for the new schema.
+- `obsync init` command.
 
 ---
 
@@ -124,7 +123,7 @@ inspectExistingVault(localPath: string): Promise<{
   currentBranch: string | null;
 }>
 
-getEffectiveRemote(localPath: string): Promise<string>
+getEffectiveRemote(localPath: string, remoteAlias?: string): Promise<string>
 
 getEffectiveBranch(localPath: string): Promise<string>
 
@@ -159,15 +158,15 @@ Priority tests:
 
 ## Implementation Order
 
-1. Update `vaults` schema in Drizzle to remove `remote` and `branch` columns, and update migrations.
-2. Implement focused `GitService` helpers (`getEffectiveRemote`, `getEffectiveBranch`, `validateVaultGitRepo`).
-3. Update `CreateVaultHandler` and DTOs to only accept/persist `name` and `localPath`, validating Git repo state.
-4. Update `UpdateVaultHandler` and DTOs.
-5. Update sync command implementations to query `GitService` dynamically for remote/branch.
-6. Add daemon integration tests for `add`/`update` validation and dynamic Git reading.
-7. Update CLI `vault add` command to path-first syntax (`obsync vault add <path>`).
-8. Add/plan `obsync init` as explicit Git setup command.
-9. Refresh e2e test fixtures to reflect simplified schema and API.
+1. [x] Update `vaults` schema in Drizzle to remove `remote` and `branch` columns, and update migrations.
+2. [x] Implement focused `GitService` helpers (`getEffectiveRemote`, `getEffectiveBranch`, `validateVaultGitRepo`, `inspectExistingVault`).
+3. [x] Update `CreateVaultHandler` and DTOs to only accept/persist `name` (with dirname fallback) and `localPath`, validating Git repo state.
+4. [x] Update `UpdateVaultHandler` and DTOs.
+5. [x] Update sync command implementations to query `GitService` dynamically for remote/branch.
+6. [ ] Update CLI `vault add` command to path-first syntax (`obsync vault add <path> [--name <name>]`).
+7. [ ] Add daemon integration tests for `add`/`update` validation and dynamic Git reading.
+8. [ ] Add/plan `obsync init` as explicit Git setup command.
+9. [ ] Refresh e2e test fixtures to reflect simplified schema and API.
 
 ---
 
@@ -177,3 +176,8 @@ Priority tests:
 - **Local-Only Vaults**:
   - Allow local-only vaults without remotes.
   - Guard remote sync operations with `REMOTE_REQUIRED` domain error.
+- **Drift Detection** (remote URL or branch changed externally between sync runs):
+  - Since neither `remote` nor `branch` are persisted, detecting drift requires snapshotting the effective remote and branch in memory at registration or first sync, then comparing on each subsequent Git operation.
+  - Desired behavior: throw a loud, clear domain error (e.g. `RemoteDriftError`, `BranchDriftError`) when a mismatch is detected.
+  - Deferred because: implementing this before multi-remote management lands would tie the comparison logic to a single-remote assumption that will need to be unwound. The shape of "what to compare against" changes once the `remotes` table exists.
+  - Worth acknowledging now so the eventual implementation is deliberate, not an afterthought.

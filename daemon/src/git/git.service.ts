@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { simpleGit, GitError, SimpleGit } from 'simple-git';
 import { NotAGitRepoError } from './errors/not-git-repo.error';
-import { RemoteMismatchError } from './errors/remote-mismatch.error';
 import { MergeConflictError } from './errors/merge-conflict.error';
 import { RemoteAuthError } from './errors/remote-auth.error';
 import { NetworkError } from './errors/network.error';
 import { GitOperationError } from './errors/git-operation.error';
 import { DirtyWorkingTreeError } from './errors/dirty-working-tree.error';
 import { InvalidFilePathsError } from './errors/invalid-file-paths.error';
+import { RemoteNotFoundError } from './errors/remote-not-found.error';
 
 @Injectable()
 export class GitService {
@@ -31,8 +31,8 @@ export class GitService {
 
   async inspectExistingVault(localPath: string): Promise<{
     localPath: string;
-    remote: string;
-    branch: string;
+    remote: string | null;
+    branch: string | null;
   }> {
     return await this.runGitOperation(
       localPath,
@@ -43,22 +43,27 @@ export class GitService {
         const branchSummary = await git.branch();
         return {
           localPath,
-          remote: origin?.refs.push || '',
-          branch: branchSummary.current,
+          remote: origin?.refs.push || null,
+          branch: branchSummary.current || null,
         };
       },
     );
   }
 
-  async getEffectiveRemote(localPath: string): Promise<string> {
+  async getEffectiveRemote(
+    localPath: string,
+    remoteAlias?: string,
+  ): Promise<string | null> {
     return await this.runGitOperation(
       localPath,
       'get-effective-remote',
       async (git) => {
         const remotes = await git.getRemotes(true);
-        const origin = remotes.find((r) => r.name === 'origin');
+        const origin = remotes.find(
+          (r) => r.name === (remoteAlias || 'origin'),
+        );
         if (!origin) {
-          throw new RemoteMismatchError(localPath, 'origin', undefined);
+          throw new RemoteNotFoundError(localPath, remoteAlias || 'origin');
         }
         return origin.refs.push;
       },

@@ -43,10 +43,8 @@ export class VaultController {
   ): Promise<VaultResponseDto> {
     return this.commandBus.execute(
       new CreateVaultCommand(
-        createVaultDto.name,
         createVaultDto.localPath,
-        createVaultDto.remote,
-        createVaultDto.branch,
+        createVaultDto.name,
         createVaultDto.autoSync,
         createVaultDto.syncInterval,
         createVaultDto.conflictStrategy,
@@ -81,8 +79,6 @@ export class VaultController {
         params.id,
         updateVaultDto.name,
         updateVaultDto.localPath,
-        updateVaultDto.remote,
-        updateVaultDto.branch,
         updateVaultDto.autoSync,
         updateVaultDto.syncInterval,
         updateVaultDto.conflictStrategy,

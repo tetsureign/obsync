@@ -7,14 +7,13 @@ import { VaultAlreadyExistsError } from '../errors/vault-already-exists.error';
 import { VaultNotFoundError } from '../errors/vault-not-found.error';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { isSqliteUniqueConstraintError } from '@/database/sqlite-error';
+import { GitService } from '@/git/git.service';
 
 export class UpdateVaultCommand {
   constructor(
     public readonly id: UpdateVaultPayload['id'],
     public readonly name?: UpdateVaultPayload['name'],
     public readonly localPath?: UpdateVaultPayload['localPath'],
-    public readonly remote?: UpdateVaultPayload['remote'],
-    public readonly branch?: UpdateVaultPayload['branch'],
     public readonly autoSync?: UpdateVaultPayload['autoSync'],
     public readonly syncInterval?: UpdateVaultPayload['syncInterval'],
     public readonly conflictStrategy?: UpdateVaultPayload['conflictStrategy'],
@@ -22,7 +21,10 @@ export class UpdateVaultCommand {
 }
 @CommandHandler(UpdateVaultCommand)
 export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
-  constructor(private repository: VaultRepository) {}
+  constructor(
+    private repository: VaultRepository,
+    private gitService: GitService,
+  ) {}
 
   async execute(command: UpdateVaultCommand) {
     try {
@@ -34,8 +36,6 @@ export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
       const updatedVault = await this.repository.updateById(command.id, {
         name: command.name,
         localPath: command.localPath,
-        remote: command.remote,
-        branch: command.branch,
         autoSync: command.autoSync,
         syncInterval: command.syncInterval,
         conflictStrategy: command.conflictStrategy,
@@ -48,7 +48,10 @@ export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
       const cause = error instanceof DrizzleQueryError ? error.cause : error;
 
       if (isSqliteUniqueConstraintError(cause)) {
-        throw new VaultAlreadyExistsError(command.name ?? '');
+        throw new VaultAlreadyExistsError(
+          command.name ?? '',
+          command.localPath ?? '',
+        );
       }
 
       throw error;

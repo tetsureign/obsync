@@ -20,8 +20,6 @@ export const vaults = sqliteTable('vaults', {
     .$defaultFn(() => crypto.randomUUID()),
   name: t.text().notNull().unique(), // Unique because the cli might be confused by multiple vaults with the same name
   localPath: t.text().notNull().unique(),
-  remote: t.text().notNull(),
-  branch: t.text().notNull().default('main'),
   isDirty: t.integer({ mode: 'boolean' }).notNull().default(false),
   autoSync: t.integer({ mode: 'boolean' }).notNull().default(false),
   syncInterval: t

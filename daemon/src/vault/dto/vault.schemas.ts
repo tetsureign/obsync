@@ -25,8 +25,6 @@ export const vaultCoreSchema = z.object({
       },
     )
     .transform((val) => path.normalize(val)),
-  remote: z.string(),
-  branch: z.string(),
   autoSync: z.boolean(),
   syncInterval: z.number(),
   conflictStrategy: vaultConflictStrategySchema,
@@ -41,7 +39,7 @@ export const vaultResponseSchema = vaultCoreSchema.extend({
 });
 
 export const createVaultCommandSchema = vaultCoreSchema.extend({
-  branch: vaultCoreSchema.shape.branch.default('main'),
+  name: vaultCoreSchema.shape.name.default(''),
   autoSync: vaultCoreSchema.shape.autoSync.default(false),
   syncInterval: vaultCoreSchema.shape.syncInterval.default(5 * 60),
   conflictStrategy:
