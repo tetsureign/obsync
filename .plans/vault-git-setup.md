@@ -1,216 +1,179 @@
 # Vault Git Setup
 
 > Captured from a design session on 2026-06-03.
-> Covers Git-backed vault creation, remote-backed vs local-only vaults, and Obsidian `.gitignore` handling.
+> Updated on 2026-07-23 after implementation review, CLI flow revision, and schema simplification.
+> MVP direction: `obsync add` registers an existing Git-backed vault; `obsync init` owns setup.
 
 ---
 
-## Goal
+## Decision
 
-`obsync add` should make the vault usable immediately, not just save hopeful metadata.
+`obsync add` is a registration command, not a setup command.
 
-When a user adds or updates a vault, the daemon should verify the Git state before writing the vault record. Bad paths, bad remotes, auth failures, missing branches, and non-repo folders should fail at add/update time with clear domain errors.
+The CLI accepts path-first registration:
 
-This replaces complex remote URL validation with Git-backed verification wherever possible.
+```text
+obsync vault add <path> [--name <name>]
+```
 
----
+`vaults` schema will **not** persist `remote` or `branch`. Git repository configuration (`.git/config` and `HEAD`) remains the sole source of truth for both:
 
-## Vault Modes
+- **Branch**: Sync operates dynamically on whatever branch the repository currently has checked out.
+- **Remote**: Sync operates on the repository's configured remote (defaulting to `origin`), resolved dynamically via Git helpers.
 
-### Remote-backed vault
+Future explicit multi-remote management will be handled by a dedicated `remotes` table when implemented.
 
-`remote` is required.
+Any operation that creates or mutates Git state belongs in an explicit setup command such as `obsync init`. This keeps registration separate from clone/init/remote setup behavior.
 
-The daemon should:
-
-- Clone the remote if `localPath` does not exist or is an empty directory.
-- Validate the existing repo if `localPath` is already a Git repo.
-- Verify `origin` matches the requested remote.
-- Verify the requested branch exists locally or on `origin`.
-- Store the vault only after Git verification succeeds.
-
-This mode supports full sync: `pull`, `stage`, `commit`, and `push`.
-
-### Local-only vault
-
-`remote` is `null`.
-
-The daemon should:
-
-- Run `git init` if `localPath` is not already a repo.
-- Validate the existing repo if `localPath` is already a Git repo.
-- Add an Obsidian-oriented `.gitignore` if one does not already exist.
-- Store the vault as Git-backed but not remote-syncable.
-
-This mode supports local Git operations such as `status`, `diff`, `stage`, and `commit`.
-
-It does not support `pull`, `push`, or full remote sync until a remote is attached.
+MVP remains remote-backed sync only. Local-only vaults are deferred.
 
 ---
 
-## Schema And DTO Changes
+## Current Implementation Snapshot
 
-Make `vaults.remote` nullable.
+Already implemented:
 
-Update the affected surfaces:
+- `vaults.remote` is currently in Drizzle schema (to be removed/refactored).
+- `vaults.branch` is currently in Drizzle schema (to be removed/refactored).
+- `VaultModule` already imports `GitModule`.
+- `CreateVaultHandler` already calls `GitService` before inserting the DB row.
+- Sync commands currently validate vault path and Git state.
+- Existing vault API e2e tests cover CRUD validation, duplicate name/path behavior, and basic defaults.
 
-- Drizzle schema: `remote` becomes nullable.
-- Vault payload and response types.
-- Create/update DTO schemas.
-- Any Git service methods or sync commands that currently assume `remote: string`.
+Still incomplete:
 
-Keep DTO validation small:
-
-- `localPath`: absolute path, normalized.
-- `remote`: nullable non-empty string.
-- `branch`: non-empty string.
-
-Do not add complex URL regex validation in the MVP. Let Git validate remote reality.
+- Remove `remote` and `branch` columns from Drizzle schema, migrations, and DTOs.
+- CLI `vault add` still requires positional `name path remote`.
+- `CreateVaultRequest` in the CLI still serializes required `remote` and optional `branch`.
+- Add dedicated `GitService` helper methods for reading runtime Git metadata (`getEffectiveRemote`, `getEffectiveBranch`).
+- `UpdateVaultCommand` / handler needs cleanup around removed `remote`/`branch` persistence.
+- No `obsync init` command exists yet.
 
 ---
 
-## Git Service Shape
+## Target Behavior
 
-Add a higher-level method:
+### `obsync add`
+
+CLI behavior:
+
+- Minimal command: `obsync vault add <path> [--name <name>]`
+- Infers default name from path directory name if omitted.
+- Validates that `<path>` exists and is a valid Git repository with a configured remote before registration.
+
+Daemon flow:
+
+1. Validate `name` and `localPath`.
+2. Inspect `localPath` to ensure it is a valid Git repository.
+3. Call `GitService.getEffectiveRemote(localPath)` to verify a remote is configured (e.g. `origin`).
+4. Call `GitService.getEffectiveBranch(localPath)` to verify a branch is checked out.
+5. Insert the vault row with `name` and normalized `localPath`.
+
+`add` must not:
+
+- Run `git init`.
+- Clone a remote.
+- Add or change remotes.
+- Check out or create branches.
+- Write `.gitignore`.
+
+If the path is not ready or not a Git repo, return a domain error prompting the user to run `obsync init` first.
+
+### `obsync update`
+
+Update handles identity and schedule changes (e.g., `name`, `localPath`, schedule interval).
+
+Daemon flow:
+
+1. Load the existing vault.
+2. Merge update fields.
+3. If `localPath` changed, validate that the new path is a valid Git repository with configured remote.
+4. Persist update.
+
+### `obsync init`
+
+`init` owns setup and filesystem mutation.
+
+MVP shape:
+
+- Accept a path and remote URL.
+- Clone the remote into the path when the path does not exist or is empty.
+- For an existing directory, initialize Git, configure `origin`, and set up initial branch.
+- Print follow-up command: `obsync vault add <path> [--name <name>]`.
+
+---
+
+## Daemon Changes
+
+Schema:
+
+- Remove `remote` and `branch` columns from `vaults` table schema.
+- `vaults` table retains `id`, `name`, `localPath`, `createdAt`, `updatedAt` (and sync schedule settings).
+
+DTOs and payload types:
+
+- `CreateVaultDto` accepts `name` (optional, fallback to dirname) and `localPath`.
+- `UpdateVaultDto` accepts `name`, `localPath`, etc. (no `remote` or `branch`).
+
+Git service helpers:
 
 ```ts
-ensureVaultReady({
-  localPath,
-  remote,
-  branch,
-}: {
+inspectExistingVault(localPath: string): Promise<{
   localPath: string;
-  remote: string | null;
-  branch: string;
-})
+  detectedRemote: string | null;
+  currentBranch: string | null;
+}>
+
+getEffectiveRemote(localPath: string): Promise<string>
+
+getEffectiveBranch(localPath: string): Promise<string>
+
+validateVaultGitRepo(localPath: string): Promise<void>
 ```
 
 Expected behavior:
 
-- `remote !== null`: ensure a remote-backed vault.
-- `remote === null`: ensure a local-only vault.
-
-Keep lower-level helpers private where useful:
-
-- `cloneVault`
-- `initVault`
-- `assertOriginMatches`
-- `assertBranchExists`
-- `writeDefaultGitignoreIfMissing`
-
-Prefer Git operations over hand-parsed remote URL rules.
-
----
-
-## Sync Behavior
-
-Remote-backed vaults:
-
-- `status`: allowed
-- `diff`: allowed
-- `stage`: allowed
-- `commit`: allowed
-- `pull`: allowed
-- `push`: allowed
-- `sync`: allowed
-
-Local-only vaults:
-
-- `status`: allowed
-- `diff`: allowed
-- `stage`: allowed
-- `commit`: allowed
-- `pull`: rejected
-- `push`: rejected
-- `sync`: rejected
-
-Add a domain error such as `REMOTE_REQUIRED` for operations that require a remote.
-
-The user-facing message should explain that the vault is local-only and needs a remote before it can sync.
-
----
-
-## Obsidian `.gitignore`
-
-Use the official Obsidian guidance as the baseline:
-
-- Obsidian stores vault settings in `.obsidian`.
-- Obsidian notes that workspace layout files such as `.obsidian/workspace.json` and `.obsidian/workspaces.json` may be useful to add to `.gitignore` when using Git.
-
-Default behavior:
-
-- If `.gitignore` does not exist, create one with the Obsidian baseline entries.
-- If `.gitignore` already exists, do not overwrite it.
-- The CLI should tell the user that the generated `.gitignore` is only a starting point and they may want to customize it for plugins, themes, attachments, or device-specific settings.
-
-Do not auto-ignore broad folders such as `.obsidian/plugins/` or `.obsidian/themes/` in the MVP. Some users intentionally sync those.
-
-References:
-
-- https://obsidian.md/help/data-storage
-- https://obsidian.md/help/sync-notes
-
----
-
-## Command Flow
-
-### Create
-
-1. Validate DTO.
-2. Run `GitService.ensureVaultReady(...)`.
-3. Insert vault row.
-4. Return saved vault.
-
-If Git setup succeeds but DB insert fails because of duplicate name/path, leave the Git repo as-is. Do not try to undo user filesystem state.
-
-### Update
-
-1. Validate DTO.
-2. Load existing vault.
-3. Merge existing values with provided update fields.
-4. Run `GitService.ensureVaultReady(...)` with the effective values.
-5. Update vault row if no active sync operation exists.
-6. Return saved vault.
-
-If the vault is currently syncing, reject before mutating Git state.
+- `validateVaultGitRepo`: fails if `localPath` is not a Git repo.
+- `getEffectiveRemote`: inspects git config for alias (default `origin`) and returns configured URL, throwing if missing.
+- `getEffectiveBranch`: inspects `HEAD` to return current active branch.
+- Sync operations query Git directly via `GitService` at runtime rather than reading cached DB fields.
 
 ---
 
 ## Testing Strategy
 
-Prefer focused tests over making every HTTP e2e test depend on real Git.
+Integration tests using real temp directories and local bare remotes.
 
-Command handler tests:
+Priority tests:
 
-- `CreateVaultHandler` calls `ensureVaultReady` before insert.
-- `UpdateVaultHandler` loads existing data, merges partial payload, and verifies the effective Git config.
-- Git failures prevent DB writes.
-- Local-only vaults save `remote: null`.
-
-Git service tests:
-
-- Existing repo with matching origin passes.
-- Existing repo with mismatched origin fails.
-- Missing/empty path with remote clones.
-- Local-only missing/empty path runs `git init`.
-- Existing `.gitignore` is preserved.
-- Missing `.gitignore` gets the Obsidian baseline.
-
-Sync command tests:
-
-- Local-only vault rejects `pull`, `push`, and full `sync` with `REMOTE_REQUIRED`.
-- Local-only vault still allows `status`, `diff`, `stage`, and `commit`.
-
-Use local temp repositories and local bare remotes for Git service tests. Avoid network remotes.
+- `add` with valid Git repo succeeds and stores `name` + `localPath`.
+- `add` rejects non-repo path and does not insert a DB row.
+- `add` rejects repo with no configured remote (`origin`).
+- `add` rejects repo with detached HEAD state.
+- Duplicate name/path fails without touching Git state.
+- `update` path-changing validates target directory is a valid Git repo.
+- Sync command reads current branch and remote at execution time.
+- CLI `vault add <path>` infers name when missing.
 
 ---
 
 ## Implementation Order
 
-1. Make `remote` nullable in schema, DTOs, and types.
-2. Import `GitModule` into `VaultModule`.
-3. Implement `GitService.ensureVaultReady`.
-4. Call it from create and update handlers.
-5. Add `REMOTE_REQUIRED` and guard remote-only sync commands.
-6. Add focused command and Git service tests.
-7. Add CLI copy for local-only mode and `.gitignore` customization.
+1. Update `vaults` schema in Drizzle to remove `remote` and `branch` columns, and update migrations.
+2. Implement focused `GitService` helpers (`getEffectiveRemote`, `getEffectiveBranch`, `validateVaultGitRepo`).
+3. Update `CreateVaultHandler` and DTOs to only accept/persist `name` and `localPath`, validating Git repo state.
+4. Update `UpdateVaultHandler` and DTOs.
+5. Update sync command implementations to query `GitService` dynamically for remote/branch.
+6. Add daemon integration tests for `add`/`update` validation and dynamic Git reading.
+7. Update CLI `vault add` command to path-first syntax (`obsync vault add <path>`).
+8. Add/plan `obsync init` as explicit Git setup command.
+9. Refresh e2e test fixtures to reflect simplified schema and API.
+
+---
+
+## Deferred Scope
+
+- **Explicit Multi-Remote Management**: Dedicate a `remotes` table (`vaultId`, `alias`, `url`, `isDefault`) when multi-remote support is implemented.
+- **Local-Only Vaults**:
+  - Allow local-only vaults without remotes.
+  - Guard remote sync operations with `REMOTE_REQUIRED` domain error.
