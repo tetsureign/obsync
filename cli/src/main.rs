@@ -3,6 +3,8 @@ mod client;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use client::{ApiClient, CreateVaultRequest, DaemonError};
+use normpath::PathExt;
+use std::path::Path;
 
 #[derive(Parser)]
 #[command(name = "obsync", about = "Obsidian vault sync CLI")]
@@ -34,11 +36,7 @@ enum Commands {
 #[derive(Subcommand)]
 enum VaultCommands {
     List,
-    Add {
-        name: String,
-        path: String,
-        remote: String,
-    },
+    Add { path: String, name: Option<String> },
 }
 
 #[tokio::main]
@@ -65,12 +63,15 @@ async fn main() -> Result<()> {
                 }
                 Err(err) => handle_daemon_error(err),
             },
-            VaultCommands::Add { name, path, remote } => {
+            VaultCommands::Add { name, path } => {
                 let req = CreateVaultRequest {
-                    name,
-                    local_path: path,
-                    remote,
-                    branch: None,
+                    local_path: Path::new(&path)
+                        .normalize()
+                        .unwrap()
+                        .as_path()
+                        .to_string_lossy()
+                        .into_owned(),
+                    name: name,
                     auto_sync: None,
                     sync_interval: None,
                     conflict_strategy: None,

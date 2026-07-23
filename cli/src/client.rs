@@ -14,8 +14,6 @@ pub struct Vault {
     pub id: String,
     pub name: String,
     pub local_path: String,
-    pub remote: String,
-    pub branch: String,
     pub auto_sync: bool,
     pub sync_interval: u64,
     pub conflict_strategy: String,
@@ -28,11 +26,9 @@ pub struct Vault {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateVaultRequest {
-    pub name: String,
     pub local_path: String,
-    pub remote: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub branch: Option<String>,
+    pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_sync: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
