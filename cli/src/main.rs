@@ -36,7 +36,11 @@ enum Commands {
 #[derive(Subcommand)]
 enum VaultCommands {
     List,
-    Add { path: String, name: Option<String> },
+    Add {
+        path: String,
+        #[arg(short, long)]
+        name: Option<String>,
+    },
 }
 
 #[tokio::main]

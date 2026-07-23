@@ -163,7 +163,7 @@ Priority tests:
 3. [x] Update `CreateVaultHandler` and DTOs to only accept/persist `name` (with dirname fallback) and `localPath`, validating Git repo state.
 4. [x] Update `UpdateVaultHandler` and DTOs.
 5. [x] Update sync command implementations to query `GitService` dynamically for remote/branch.
-6. [ ] Update CLI `vault add` command to path-first syntax (`obsync vault add <path> [--name <name>]`).
+6. [x] Update CLI `vault add` command to path-first syntax (`obsync vault add <path> [--name <name>]`).
 7. [ ] Add daemon integration tests for `add`/`update` validation and dynamic Git reading.
 8. [ ] Add/plan `obsync init` as explicit Git setup command.
 9. [ ] Refresh e2e test fixtures to reflect simplified schema and API.
