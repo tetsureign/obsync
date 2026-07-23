@@ -30,10 +30,8 @@ export class GetGitDiffHandler implements IQueryHandler<GetGitDiffQuery> {
       throw new VaultNotFoundError(query.vaultId);
     }
 
-    await this.gitService.assertValidVault(
-      vaultInfo.localPath,
-      vaultInfo.remote,
-    );
+    await this.gitService.validateVaultGitRepo(vaultInfo.localPath);
+    await this.gitService.getEffectiveRemote(vaultInfo.localPath);
 
     if (await this.syncRepository.getActiveSyncOperation(query.vaultId)) {
       throw new SyncOperationStillRunningError(query.vaultId, 'diff');

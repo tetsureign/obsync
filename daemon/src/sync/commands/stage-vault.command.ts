@@ -30,10 +30,8 @@ export class StageVaultHandler implements ICommandHandler<StageVaultCommand> {
       throw new VaultNotFoundError(command.vaultId);
     }
 
-    await this.gitService.assertValidVault(
-      vaultInfo.localPath,
-      vaultInfo.remote,
-    );
+    await this.gitService.validateVaultGitRepo(vaultInfo.localPath);
+    await this.gitService.getEffectiveRemote(vaultInfo.localPath);
 
     if (await this.syncRepository.getActiveSyncOperation(command.vaultId)) {
       throw new SyncOperationStillRunningError(command.vaultId, 'stage');

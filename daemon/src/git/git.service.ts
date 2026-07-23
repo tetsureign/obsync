@@ -20,23 +20,60 @@ export class GitService {
     'Cannot use simple-git on a directory that does not exist';
   private readonly invalidFilePaths = 'fatal: pathspec';
 
-  async assertValidVault(localPath: string, expectedRemoteUrl: string) {
+  async validateVaultGitRepo(localPath: string): Promise<void> {
     await this.runGitOperation(localPath, 'check-valid-vault', async (git) => {
       const isRepo = await git.checkIsRepo();
       if (!isRepo) {
         throw new NotAGitRepoError(localPath);
       }
-
-      const remotes = await git.getRemotes(true);
-      const origin = remotes.find((remote) => remote.name === 'origin');
-      if (origin?.refs.push !== expectedRemoteUrl) {
-        throw new RemoteMismatchError(
-          localPath,
-          expectedRemoteUrl,
-          origin?.refs.push,
-        );
-      }
     });
+  }
+
+  async inspectExistingVault(localPath: string): Promise<{
+    localPath: string;
+    remote: string;
+    branch: string;
+  }> {
+    return await this.runGitOperation(
+      localPath,
+      'inspect-existing-vault',
+      async (git) => {
+        const remotes = await git.getRemotes(true);
+        const origin = remotes.find((remote) => remote.name === 'origin');
+        const branchSummary = await git.branch();
+        return {
+          localPath,
+          remote: origin?.refs.push || '',
+          branch: branchSummary.current,
+        };
+      },
+    );
+  }
+
+  async getEffectiveRemote(localPath: string): Promise<string> {
+    return await this.runGitOperation(
+      localPath,
+      'get-effective-remote',
+      async (git) => {
+        const remotes = await git.getRemotes(true);
+        const origin = remotes.find((r) => r.name === 'origin');
+        if (!origin) {
+          throw new RemoteMismatchError(localPath, 'origin', undefined);
+        }
+        return origin.refs.push;
+      },
+    );
+  }
+
+  async getEffectiveBranch(localPath: string): Promise<string> {
+    return this.runGitOperation(
+      localPath,
+      'get-effective-branch',
+      async (git) => {
+        const branchSummary = await git.branch();
+        return branchSummary.current;
+      },
+    );
   }
 
   async getStatus(localPath: string) {

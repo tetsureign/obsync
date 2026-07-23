@@ -25,7 +25,8 @@ export class CreateVaultHandler implements ICommandHandler<CreateVaultCommand> {
 
   async execute(command: CreateVaultCommand) {
     try {
-      await this.gitService.assertValidVault(command.localPath, command.remote);
+      await this.gitService.validateVaultGitRepo(command.localPath);
+      await this.gitService.getEffectiveRemote(command.localPath);
 
       const newVault = await this.repository.create({
         name: command.name,

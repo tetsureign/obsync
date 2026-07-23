@@ -26,6 +26,11 @@ export class UpdateVaultHandler implements ICommandHandler<UpdateVaultCommand> {
 
   async execute(command: UpdateVaultCommand) {
     try {
+      if (command.localPath) {
+        await this.gitService.validateVaultGitRepo(command.localPath);
+        await this.gitService.getEffectiveRemote(command.localPath);
+      }
+
       const updatedVault = await this.repository.updateById(command.id, {
         name: command.name,
         localPath: command.localPath,

@@ -33,7 +33,8 @@ export class SyncJobRunner {
 
     try {
       await this.startStepOrThrow(operation, 'pull');
-      await this.gitService.assertValidVault(vault.localPath, vault.remote);
+      await this.gitService.validateVaultGitRepo(vault.localPath);
+      await this.gitService.getEffectiveRemote(vault.localPath);
       await this.gitService.pull(vault.localPath);
 
       await this.startStepOrThrow(operation, 'stage');

@@ -24,10 +24,8 @@ export class GetGitStatusHandler implements IQueryHandler<GetGitStatusQuery> {
       throw new VaultNotFoundError(query.vaultId);
     }
 
-    await this.gitService.assertValidVault(
-      vaultInfo.localPath,
-      vaultInfo.remote,
-    );
+    await this.gitService.validateVaultGitRepo(vaultInfo.localPath);
+    await this.gitService.getEffectiveRemote(vaultInfo.localPath);
 
     return await this.gitService.getStatus(vaultInfo.localPath);
   }
