@@ -1,10 +1,8 @@
 # obsync
 
-> **Pre-release** — core sync is functional but the project is under active development. See [Status](#status) for what works today.
+A self-hosted Obsidian vault sync tool built on Git. Run it entirely on your own machine — no cloud accounts, no proprietary servers, no surprise pricing changes.
 
-A self-hosted Obsidian vault sync tool built on Git. Run it entirely on your own machine — no cloud accounts, no proprietary servers.
-
-obsync is a two-process system: a long-running **daemon** (NestJS) owns all Git operations, scheduling, and state; a thin **CLI** (Rust) is the control interface.
+obsync automates the Git workflow behind a **two-process architecture**: a long-running **daemon** (NestJS) owns all sync intelligence, scheduling, and state; a thin **CLI** (Rust) is the control interface. The daemon stays alive when your terminal closes. The CLI starts instantly and weighs nothing.
 
 ---
 
@@ -24,23 +22,28 @@ obsync is a two-process system: a long-running **daemon** (NestJS) owns all Git 
 
 The daemon runs in the background and handles everything: pulling, staging, committing, pushing, and conflict detection. The CLI sends commands and renders responses — it has no Git logic of its own.
 
+This separation keeps the sync queue running even when the terminal is closed, and lets multiple CLI invocations (or other HTTP clients) query the daemon simultaneously, while the CLI stays fast and lean with instantaneous cold start.
+
+> **See [ARCHITECTURE.md](ARCHITECTURE.md)** for the full system design: CQRS module structure, sync state machine, database schema, and API surface.  
+> **See [SECURITY.md](SECURITY.md)** for the threat model and phased hardening plan.
+
 ---
 
-## Status
+## Why Git?
 
-| Feature                                        | State                                                |
-| ---------------------------------------------- | ---------------------------------------------------- |
-| Vault registration (`vault add`, `vault list`) | ✅ Working                                           |
-| Manual sync (`sync`)                           | ✅ Working                                           |
-| Sync history & status                          | ✅ Working                                           |
-| Conflict detection & logging                   | 🟡 Detected, not yet recorded to DB                  |
-| Auth between CLI and daemon                    | ❌ Not yet — daemon is localhost-only, no token auth |
-| Auto-sync (file watcher)                       | ❌ Post-MVP                                          |
-| Live event stream (`obsync watch`)             | ❌ Post-MVP                                          |
-| Config export / import (TOML)                  | ❌ Post-MVP                                          |
-| Daemon service installer                       | ❌ Post-MVP                                          |
+Because you already own it. Git gives you history, branching, conflict resolution, and any remote you want — GitHub, GitLab, a private Gitea instance, or a bare repo on a Raspberry Pi. obsync just removes the friction of running `pull → stage → commit → push` manually every time you switch devices.
 
-Full roadmap: [`.plans/ROADMAP.md`](.plans/ROADMAP.md)
+---
+
+## What it does today
+
+- **Vault registration** — point obsync at any Git-backed Obsidian vault
+- **Manual sync** — one command runs the full pull-stage-commit-push pipeline
+- **Sync history & status** — per-vault operation log and current state
+- **Conflict detection** — identifies merge conflicts and surfaces them for resolution
+- **Crash-safe startup** — detects and cleans up dangling sync operations left by a previous daemon crash, keeping the database consistent
+
+The sync pipeline is backed by a SQLite database with a state machine that tracks every operation from queue to completion. A partial unique index enforces at most one active sync per vault at the database level.
 
 ---
 
@@ -62,8 +65,6 @@ pnpm install
 pnpm run db:migrate   # run Drizzle migrations once
 pnpm run start:dev    # starts on http://127.0.0.1:3000
 ```
-
-> ⚠️ The daemon currently binds to a fixed port (`PORT` env var, default `3000`) and has no authentication. Keep it on localhost. See [SECURITY.md](SECURITY.md) for details.
 
 ### 2. Build the CLI
 
@@ -110,8 +111,6 @@ obsync vault add <path> [--name <name>]   register a vault (must be a git repo w
 obsync vault list                         list registered vaults
 obsync sync <vault-id>                    run a manual sync (pull → stage → commit → push)
 ```
-
-> ⚠️ `remove`, `status`, `log`, and `watch` are not yet wired in the CLI. The daemon endpoints exist — CLI commands are tracked in [ROADMAP.md Phase 3](.plans/ROADMAP.md).
 
 ---
 
@@ -169,10 +168,8 @@ pnpm run db:studio      # Drizzle Studio UI
 
 ---
 
-## Architecture
+## Status
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for a detailed breakdown of the system design, module structure, data model, and API surface.
+obsync is under active development. Core sync is functional and tested. See [`.plans/ROADMAP.md`](.plans/ROADMAP.md) for upcoming features
 
-## Security
-
-See [SECURITY.md](SECURITY.md) for the threat model, designed security controls, and current pre-release security status.
+> Security note: The daemon currently binds to localhost only with no authentication. Do not expose the port to a network interface. See [SECURITY.md](SECURITY.md) for the full threat model and planned hardening phases.
