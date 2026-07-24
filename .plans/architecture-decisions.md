@@ -2,10 +2,12 @@
 
 > Captured from a structured council review session on 2026-05-20.
 > These decisions represent the shared understanding of the system design and should guide all implementation work.
+>
+> ✅ = implemented in codebase · ❌ = not yet implemented · 🔜 = deferred post-MVP
 
 ---
 
-## Sync Contract
+## ✅ Sync Contract
 
 The MVP contract is **stateless convergence**, not step resume:
 
@@ -21,32 +23,29 @@ obsync sync = resume a previous daemon-internal step exactly
 
 ---
 
-## Startup Reconciliation
+## ✅ Startup Reconciliation
 
 On daemon startup, all dangling `queued` or `running` sync operations must be marked `aborted/done` with error code `DAEMON_INTERRUPTED`.
 
-**Implementation**: A `StartupReconciliationService` using the `OnApplicationBootstrap` NestJS lifecycle hook.
+**Implementation**: `AppService` implements `OnApplicationBootstrap` and calls `abortAllActiveSyncOperations()` on boot.
 
 - This is **cleanup**, not recovery.
 - After startup, if the user wants a sync, they call `obsync sync` which creates a fresh operation.
 
 ---
 
-## SyncVaultHandler — Stale Operation Abort
+## ✅ SyncVaultHandler — Stale Operation Abort
 
-The current `SyncVaultHandler` calls `queueSyncOperation` directly without aborting stale active DB records. The correct flow is:
-
-1. Add `hasVaultWork(vaultId): boolean` to `SyncQueue` using `queue.size + queue.pending > 0`.
-2. In `SyncVaultHandler.execute()`:
-   - Check in-memory queue first.
-   - If **busy** → return the existing active operation (or a clear "already running" response).
-   - If **idle** → abort any stale `queued`/`running` DB record for that vault.
-   - Create a fresh `queued/pull` operation.
-   - Enqueue the background job.
+1. `hasVaultWorks(vaultId)` implemented on `SyncQueue` using `queue.size + queue.pending > 0`.
+2. `SyncVaultHandler.execute()` calls `abortStaleSyncOperation()` which:
+   - Checks in-memory queue first via `hasVaultWorks`.
+   - If **busy** → skips abort (returns `null`), proceeds to queue a new operation.
+   - If **idle** → aborts any stale `queued`/`running` DB record for that vault.
+   - Creates a fresh `queued/pull` operation and enqueues the background job.
 
 ---
 
-## Cooperative Abort
+## 🔜 Cooperative Abort
 
 **Deferred post-MVP.**
 
@@ -54,9 +53,7 @@ The plan for cooperative abort (adding `abortRequestedAt` to the schema, `reques
 
 ---
 
-## Conflict Handling
-
-**MVP scope**, sequenced after sync queue + startup reconciliation work.
+## ❌ Conflict Handling (Phase 1 — in progress)
 
 ### MVP Behavior
 
@@ -67,19 +64,19 @@ The plan for cooperative abort (adding `abortRequestedAt` to the schema, `reques
 
 ### Implementation
 
-A `ConflictModule` will be scaffolded with a `ConflictRepository` (or conflict insert inlined into `SyncRepository`). The runner will catch `MergeConflictError`, create the record, then re-throw for standard failure recording.
+`conflict_records` table exists in schema. `ConflictRepository` or inline insert into `SyncRepository` needs to be wired into `SyncJobRunner`. See `ROADMAP.md` Phase 1.1.
 
 ---
 
-## `get-sync-status` Response Shape
+## ✅ `get-sync-status` Response Shape
 
-The query should return a **richer object**:
+Returns:
 
 - The **active operation** (if one exists — `queued` or `running`), or `null`.
-- The **last N completed operations** for the vault (for history at-a-glance).
-- Fields: `id`, `status`, `step`, `error`, `commitSha`, `startedAt`, `updatedAt`.
+- The **last N completed operations** for the vault (configurable via `lastNCompleted`, default 5).
+- Runtime queue state from `SyncQueue.getVaultQueueStatus()`.
 
-The query file at `src/sync/queries/get-sync-status.query.ts` is currently a TODO placeholder.
+Implemented in `src/sync/queries/get-sync-status.query.ts`.
 
 ---
 
@@ -126,32 +123,31 @@ Kept in the schema. Reserved for **post-MVP auto-sync** when a file system watch
 
 ---
 
-## SQLite Configuration
+## ✅ SQLite Configuration
 
-Enable **WAL mode** explicitly on connection init:
+WAL mode and foreign keys enabled in `Database.configure()`:
 
-```sql
-PRAGMA journal_mode=WAL;
+```ts
+this.db.$client.exec('PRAGMA journal_mode = WAL');
+this.db.$client.exec('PRAGMA foreign_keys = ON');
 ```
-
-This prevents reader/writer blocking when multiple vaults trigger concurrent DB reads/writes. To be added to `Database` class in `src/database/database.ts`.
 
 ---
 
-## Testing Strategy
+## ❌ Testing Strategy (Phase 1 — in progress)
 
-**Integration tests** are the preferred approach (not pure unit tests with everything mocked — see comment in `create-vault.handler.spec.ts`).
+**Integration tests** are the preferred approach.
 
 ### Setup
 
-- Real temp-file (or in-memory) SQLite DB.
-- Real Drizzle ORM + real repositories.
-- `GitService` mocked at the service boundary.
+- Real temp-file SQLite DB (`test/helpers/test-db.ts` already provides this).
+- Real Drizzle ORM + real repositories (`test/helpers/test-app.ts` boots full `AppModule`).
+- `GitService` mocked at the `Test.createTestingModule()` boundary (decision locked in).
 - Tests the full command → handler → repository → DB chain.
 
 ### Checklist (from `sync-operation-robustness.md`)
 
-Key scenarios to cover:
+Key scenarios to cover (see `ROADMAP.md` Phase 1.3):
 
 - Daemon startup aborts all `queued` and `running` operations.
 - Sync request aborts a stale active operation before creating a fresh one.
@@ -168,23 +164,25 @@ Do **not** add resume-specific tests for MVP.
 
 ---
 
-## Daemon Process Lifecycle
+## 🔜 Daemon Process Lifecycle
 
 - The daemon is a **persistent background service** managed by the OS init system (systemd on Linux, launchd on macOS).
-- Installed as a system service when the user runs `obsync install`.
-- The CLI detects whether the daemon is running before issuing commands.
+- Installed as a system service via the onboarding wizard (`cli-daemon-onboarding.md`, Phase 5).
+- The CLI detects whether the daemon is running via lockfile before issuing commands (`daemon-hardening.md`, Phase 2).
 - All sync logic is in the daemon — the CLI is purely a presentation layer.
 
 ---
 
-## MVP Implementation Order
+## Implementation Status
 
-1. `hasVaultWork(vaultId)` on `SyncQueue` + `SyncVaultHandler` stale-abort logic
-2. `StartupReconciliationService` with `OnApplicationBootstrap`
-3. WAL mode in `Database`
-4. `ConflictModule` scaffolding + runner integration (`MergeConflictError` → `conflict_record`)
-5. `GetSyncStatusQuery` implementation (active operation + last N completed)
-6. Integration test suite for the sync robustness checklist
+| Item | Status |
+|---|---|
+| `hasVaultWork(vaultId)` on `SyncQueue` + stale-abort logic | ✅ |
+| `StartupReconciliationService` (`OnApplicationBootstrap`) | ✅ |
+| WAL mode in `Database` | ✅ |
+| `ConflictModule` / runner `MergeConflictError → conflict_record` | ❌ Phase 1.1 |
+| `GetSyncStatusQuery` (active op + last N + runtime) | ✅ |
+| Integration test suite | ❌ Phase 1.3 |
 
 ### Post-MVP (deferred)
 
