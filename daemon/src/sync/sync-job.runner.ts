@@ -10,6 +10,8 @@ import { SyncOperation } from './sync.types';
 import { SyncStepTransitionError } from './error/sync-step-transition.error';
 import { SyncSuccessPersistenceError } from './error/sync-success-persistence.error';
 import { SyncFailurePersistenceError } from './error/sync-failure-persistence.error';
+import { MergeConflictError } from '@/git/errors/merge-conflict.error';
+import { ConflictRepository } from '@/conflict/conflict.repository';
 
 type SyncJob = {
   operation: SyncOperation;
@@ -24,6 +26,7 @@ export class SyncJobRunner {
 
   constructor(
     private readonly repository: SyncRepository,
+    private readonly conflictRepository: ConflictRepository,
     private readonly gitService: GitService,
   ) {}
 
@@ -50,7 +53,7 @@ export class SyncJobRunner {
 
       await this.recordSuccessBestEffort(operation, { commitSha });
     } catch (syncError) {
-      await this.recordFailureBestEffort(operation, syncError, { commitSha });
+      await this.recordFailureBestEffort(job, syncError, { commitSha });
 
       throw syncError;
     }
@@ -115,35 +118,54 @@ export class SyncJobRunner {
   }
 
   private async recordFailureBestEffort(
-    operation: SyncOperation,
+    syncJob: SyncJob,
     syncError: unknown,
     payload: Pick<SyncOperation, 'commitSha'>,
   ) {
     try {
-      await this.persistFinalStateWithRetry(operation.vaultId, async () => {
-        const updatedOperation = await this.repository.failSyncOperation(
-          operation.id,
-          {
-            ...payload,
-            error:
-              syncError instanceof AppError ? syncError.code : 'UNKNOWN_ERROR',
-          },
-        );
+      if (
+        syncError instanceof MergeConflictError &&
+        syncJob.vault.conflictStrategy === 'log-and-skip'
+      ) {
+        await this.conflictRepository.create({
+          vaultId: syncJob.operation.vaultId,
+          strategy: syncJob.vault.conflictStrategy,
+          files: JSON.stringify(syncJob.filePaths),
+        });
 
-        if (!updatedOperation) {
-          throw new SyncFailurePersistenceError(
-            operation.vaultId,
-            operation.id,
+        // The next code path will still log the error correctly
+        // Stash and retry is implemented after the CLI
+      }
+
+      await this.persistFinalStateWithRetry(
+        syncJob.operation.vaultId,
+        async () => {
+          const updatedOperation = await this.repository.failSyncOperation(
+            syncJob.operation.id,
             {
-              syncError,
-              payload,
+              ...payload,
+              error:
+                syncError instanceof AppError
+                  ? syncError.code
+                  : 'UNKNOWN_ERROR',
             },
           );
-        }
-      });
+
+          if (!updatedOperation) {
+            throw new SyncFailurePersistenceError(
+              syncJob.operation.vaultId,
+              syncJob.operation.id,
+              {
+                syncError,
+                payload,
+              },
+            );
+          }
+        },
+      );
     } catch (persistenceError) {
       this.logger.error(
-        `Failed to record failed sync operation ${operation.id}`,
+        `Failed to record failed sync operation ${syncJob.operation.id}`,
         {
           persistenceError:
             persistenceError instanceof Error

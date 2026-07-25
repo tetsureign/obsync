@@ -11,6 +11,7 @@ import { GitModule } from './git/git.module';
 import { SyncQueueModule } from './sync-queue/sync-queue.module';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
+import { ConflictModule } from './conflict/conflict.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AppController } from './app.controller';
     SyncModule,
     GitModule,
     SyncQueueModule,
+    ConflictModule,
   ],
   controllers: [AppController],
   providers: [

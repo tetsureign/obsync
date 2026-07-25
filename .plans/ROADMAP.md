@@ -32,10 +32,17 @@ These are loose ends in otherwise-implemented features. None require new modules
 
 ### 1.1 `MergeConflictError → conflict_record` in Runner
 
+<details>
+<summary>Done</summary>
+
 - In `sync-job.runner.ts`, add an explicit `catch` branch before the generic catch:
   - If `err instanceof MergeConflictError` → insert a `conflict_records` row (vault, files, `strategy = log-and-skip`) → re-throw
   - The existing `recordFailureBestEffort` then records `MERGE_CONFLICT` on the sync operation
 - Requires injecting a `ConflictRepository` (or inline conflict insert via `SyncRepository`) into the runner
+
+**Actual Implementation**: Record the conflict right inside `recordFailureBestEffort`
+
+</details>
 
 ### 1.2 Wire `obsync sync` CLI
 
