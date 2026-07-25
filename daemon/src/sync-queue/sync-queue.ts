@@ -3,32 +3,34 @@ import PQueue from 'p-queue';
 
 @Injectable()
 export class SyncQueue {
+  // Keyed by vault name — the stable, unique, CLI-facing identifier.
+  // No id lookup needed before interacting with the queue.
   private queues = new Map<string, PQueue>();
 
-  getQueue(vaultId: string) {
-    if (!this.queues.has(vaultId)) {
-      this.queues.set(vaultId, new PQueue({ concurrency: 1 }));
+  getQueue(vaultName: string) {
+    if (!this.queues.has(vaultName)) {
+      this.queues.set(vaultName, new PQueue({ concurrency: 1 }));
     }
-    return this.queues.get(vaultId)!;
+    return this.queues.get(vaultName)!;
   }
 
   async addToVaultQueue(
-    vaultId: string,
+    vaultName: string,
     fn: () => Promise<void>,
     priority = 0,
   ) {
-    const queue = this.getQueue(vaultId);
+    const queue = this.getQueue(vaultName);
     return queue.add(fn, { priority });
   }
 
-  hasVaultWorks(vaultId: string) {
-    const queue = this.getQueue(vaultId);
+  hasVaultWorks(vaultName: string) {
+    const queue = this.getQueue(vaultName);
 
     return queue.size > 0 || queue.pending > 0;
   }
 
-  getVaultQueueStatus(vaultId: string) {
-    const queue = this.getQueue(vaultId);
+  getVaultQueueStatus(vaultName: string) {
+    const queue = this.getQueue(vaultName);
 
     return {
       hasInMemoryWork: queue.size > 0 || queue.pending > 0,
@@ -38,8 +40,8 @@ export class SyncQueue {
     };
   }
 
-  abortVaultQueue(vaultId: string) {
-    const queue = this.getQueue(vaultId);
+  abortVaultQueue(vaultName: string) {
+    const queue = this.getQueue(vaultName);
 
     if (queue) {
       queue.clear();

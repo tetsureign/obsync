@@ -3,13 +3,12 @@ import { GitService } from '@/git/git.service';
 import { forwardRef, Inject } from '@nestjs/common';
 import { VaultRepository } from '@/vault/vault.repository';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
-import { SyncOperation } from '../sync.types';
 import { SyncOperationStillRunningError } from '../error/sync-still-running.error';
 import { SyncRepository } from '../sync.repository';
 
 export class GetGitDiffQuery {
   constructor(
-    public readonly vaultId: SyncOperation['vaultId'],
+    public readonly vaultName: string,
     public readonly options: string[] | undefined,
   ) {}
 }
@@ -24,17 +23,17 @@ export class GetGitDiffHandler implements IQueryHandler<GetGitDiffQuery> {
   ) {}
 
   async execute(query: GetGitDiffQuery) {
-    const vaultInfo = await this.vaultRepository.findById(query.vaultId);
+    const vaultInfo = await this.vaultRepository.findByName(query.vaultName);
 
     if (!vaultInfo) {
-      throw new VaultNotFoundError(query.vaultId);
+      throw new VaultNotFoundError(query.vaultName);
     }
 
     await this.gitService.validateVaultGitRepo(vaultInfo.localPath);
     await this.gitService.getEffectiveRemote(vaultInfo.localPath);
 
-    if (await this.syncRepository.getActiveSyncOperation(query.vaultId)) {
-      throw new SyncOperationStillRunningError(query.vaultId, 'diff');
+    if (await this.syncRepository.getActiveSyncOperation(vaultInfo.id)) {
+      throw new SyncOperationStillRunningError(query.vaultName, 'diff');
     }
 
     return this.gitService.diff(vaultInfo.localPath, query.options);

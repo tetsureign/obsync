@@ -9,4 +9,4 @@ export type VaultPayload = Pick<
   'name' | 'localPath' | 'autoSync' | 'syncInterval' | 'conflictStrategy'
 >;
 
-export type UpdateVaultPayload = Partial<VaultPayload> & { id: string };
+export type UpdateVaultPayload = Partial<VaultPayload> & { name: string };

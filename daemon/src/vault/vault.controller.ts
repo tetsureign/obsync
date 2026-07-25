@@ -60,15 +60,15 @@ export class VaultController {
     return this.queryBus.execute(new GetVaultByPathQuery(query.localPath));
   }
 
-  @Get(':id')
+  @Get(':name')
   @ZodSerializerDto(VaultResponseDto)
-  async getVaultById(
+  async getVaultByName(
     @Param() params: GetVaultParamsDto,
   ): Promise<VaultResponseDto> {
-    return this.queryBus.execute(new GetVaultQuery(params.id));
+    return this.queryBus.execute(new GetVaultQuery(params.name));
   }
 
-  @Patch(':id')
+  @Patch(':name')
   @ZodSerializerDto(VaultResponseDto)
   async updateVault(
     @Param() params: GetVaultParamsDto,
@@ -76,8 +76,8 @@ export class VaultController {
   ): Promise<VaultResponseDto> {
     return this.commandBus.execute(
       new UpdateVaultCommand(
-        params.id,
-        updateVaultDto.name,
+        params.name,
+        updateVaultDto.name, // new name to rename to (optional)
         updateVaultDto.localPath,
         updateVaultDto.autoSync,
         updateVaultDto.syncInterval,
@@ -86,8 +86,8 @@ export class VaultController {
     );
   }
 
-  @Delete(':id')
+  @Delete(':name')
   async deleteVault(@Param() params: GetVaultParamsDto): Promise<boolean> {
-    return this.commandBus.execute(new DeleteVaultCommand(params.id));
+    return this.commandBus.execute(new DeleteVaultCommand(params.name));
   }
 }

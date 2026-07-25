@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { Database } from '@/database/database';
 import { syncOperations, vaults } from '@/database/schema';
 import { eq, inArray, and, notExists } from 'drizzle-orm';
-import { PartialVault } from './vault.types';
+import { PartialVault, VaultPayload } from './vault.types';
 import { VaultNotFoundError } from './errors/vault-not-found.error';
 import { SyncOperationIsRunningError } from './errors/sync-operation-running.error';
 import { getSqliteRowsAffected } from '@/database/sqlite-result';
@@ -13,13 +13,19 @@ import { getSqliteRowsAffected } from '@/database/sqlite-result';
 export class VaultRepository {
   constructor(private readonly database: Database) {}
 
-  private getActiveSyncSubquery(vaultId: string) {
+  /**
+   * Correlated subquery: matches active sync_operations rows where
+   * vault_id = vaults.id of the outer row being updated/deleted.
+   * No pre-fetched id needed — SQLite resolves the column reference at
+   * execution time, keeping the entire operation atomic.
+   */
+  private getActiveSyncCorrelatedSubquery() {
     return this.database.db
       .select({ id: syncOperations.id })
       .from(syncOperations)
       .where(
         and(
-          eq(syncOperations.vaultId, vaultId),
+          eq(syncOperations.vaultId, vaults.id),
           inArray(syncOperations.status, ['queued', 'running']),
         ),
       );
@@ -38,6 +44,15 @@ export class VaultRepository {
       .get();
   }
 
+  async findByName(name: string) {
+    return await this.database.db
+      .select()
+      .from(vaults)
+      .where(eq(vaults.name, name))
+      .limit(1)
+      .get();
+  }
+
   async findByPath(path: string) {
     return await this.database.db
       .select()
@@ -51,11 +66,16 @@ export class VaultRepository {
     return await this.database.db.insert(vaults).values(data).returning().get();
   }
 
-  async updateById(id: string, data: Partial<PartialVault>) {
+  async updateByName(name: string, data: Partial<VaultPayload>) {
     const updatedVault = await this.database.db
       .update(vaults)
       .set(data)
-      .where(and(eq(vaults.id, id), notExists(this.getActiveSyncSubquery(id))))
+      .where(
+        and(
+          eq(vaults.name, name),
+          notExists(this.getActiveSyncCorrelatedSubquery()),
+        ),
+      )
       .returning()
       .get();
 
@@ -63,31 +83,34 @@ export class VaultRepository {
       return updatedVault;
     }
 
-    // Check if vault still exists after edit if the command didn't successfully run
-    const existingVault = await this.findById(id);
-    if (!existingVault) {
-      throw new VaultNotFoundError(id);
+    // Diagnose only on failure: distinguish not-found from sync-running
+    const existing = await this.findByName(name);
+    if (!existing) {
+      throw new VaultNotFoundError(name);
     }
-
-    // If not that, then the only option is sync operation is running for this vault
-    throw new SyncOperationIsRunningError(id);
+    throw new SyncOperationIsRunningError(name);
   }
 
-  async delete(id: string) {
+  async deleteByName(name: string) {
     const result = await this.database.db
       .delete(vaults)
-      .where(and(eq(vaults.id, id), notExists(this.getActiveSyncSubquery(id))))
+      .where(
+        and(
+          eq(vaults.name, name),
+          notExists(this.getActiveSyncCorrelatedSubquery()),
+        ),
+      )
       .run();
 
     if (getSqliteRowsAffected(result) > 0) {
       return true;
     }
 
-    const existingVault = await this.findById(id);
-    if (!existingVault) {
-      throw new VaultNotFoundError(id);
+    // Diagnose only on failure: distinguish not-found from sync-running
+    const existing = await this.findByName(name);
+    if (!existing) {
+      throw new VaultNotFoundError(name);
     }
-
-    throw new SyncOperationIsRunningError(id);
+    throw new SyncOperationIsRunningError(name);
   }
 }

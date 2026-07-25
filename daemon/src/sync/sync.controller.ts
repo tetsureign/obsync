@@ -30,7 +30,7 @@ export class SyncController {
     private queryBus: QueryBus,
   ) {}
 
-  @Post(':id/sync')
+  @Post(':name/sync')
   @ZodSerializerDto(SyncResponseDto)
   async syncVault(
     @Param() param: GetVaultParamsDto,
@@ -38,78 +38,78 @@ export class SyncController {
   ): Promise<SyncOperation> {
     return await this.commandBus.execute(
       new SyncVaultCommand(
-        param.id,
+        param.name,
         syncVaultDto.filePaths,
         syncVaultDto.commitMessage,
       ),
     );
   }
 
-  @Post(':id/abort')
+  @Post(':name/abort')
   async abortSync(@Param() params: GetVaultParamsDto): Promise<boolean> {
-    return await this.commandBus.execute(new AbortSyncCommand(params.id));
+    return await this.commandBus.execute(new AbortSyncCommand(params.name));
   }
 
-  @Get(':id/status')
+  @Get(':name/status')
   async getSyncStatus(
     @Param() param: GetVaultParamsDto,
     @Query() query: GetSyncStatusQueryDto,
   ): Promise<SyncStatus> {
     return await this.queryBus.execute(
-      new GetSyncStatusQuery(param.id, query.lastNCompletedSync),
+      new GetSyncStatusQuery(param.name, query.lastNCompletedSync),
     );
   }
 
-  @Get(':id/syncs')
+  @Get(':name/syncs')
   @ZodSerializerDto(GetHistoryQueryResponseDto)
   async getSyncHistory(
     @Param() param: GetVaultParamsDto,
   ): Promise<SyncOperation[]> {
-    return await this.queryBus.execute(new GetSyncHistoryQuery(param.id));
+    return await this.queryBus.execute(new GetSyncHistoryQuery(param.name));
   }
 
-  @Get(':id/git-status')
+  @Get(':name/git-status')
   async getGitStatus(@Param() param: GetVaultParamsDto): Promise<StatusResult> {
-    return await this.queryBus.execute(new GetGitStatusQuery(param.id));
+    return await this.queryBus.execute(new GetGitStatusQuery(param.name));
   }
 
-  @Get(':id/git-diff')
+  @Get(':name/git-diff')
   async getGitDiff(
     @Param() param: GetVaultParamsDto,
     @Query() query: GetGitDiffQueryDto,
   ): Promise<string> {
     return await this.queryBus.execute(
-      new GetGitDiffQuery(param.id, query.options),
+      new GetGitDiffQuery(param.name, query.options),
     );
   }
 
-  @Post(':id/git-pull')
+  @Post(':name/git-pull')
   async pullVault(@Param() params: GetVaultParamsDto): Promise<boolean> {
-    return await this.commandBus.execute(new PullVaultCommand(params.id));
+    return await this.commandBus.execute(new PullVaultCommand(params.name));
   }
 
-  @Post(':id/git-stage')
+  @Post(':name/git-stage')
   async stageVault(
     @Param() params: GetVaultParamsDto,
     @Body() stageVaultDto: StageVaultCommandDto,
   ): Promise<boolean> {
     return await this.commandBus.execute(
-      new StageVaultCommand(params.id, stageVaultDto.filePaths),
+      new StageVaultCommand(params.name, stageVaultDto.filePaths),
     );
   }
 
-  @Post(':id/git-commit')
+  @Post(':name/git-commit')
   async commitVault(
     @Param() params: GetVaultParamsDto,
     @Body() commitVaultDto: CommitVaultCommandDto,
   ): Promise<boolean> {
     return await this.commandBus.execute(
-      new CommitVaultCommand(params.id, commitVaultDto.commitMessage),
+      new CommitVaultCommand(params.name, commitVaultDto.commitMessage),
     );
   }
 
-  @Post(':id/git-push')
+  @Post(':name/git-push')
   async pushVault(@Param() params: GetVaultParamsDto): Promise<boolean> {
-    return await this.commandBus.execute(new PushVaultCommand(params.id));
+    return await this.commandBus.execute(new PushVaultCommand(params.name));
   }
 }

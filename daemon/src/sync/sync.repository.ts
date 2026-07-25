@@ -2,7 +2,7 @@
 import { Database } from '@/database/database';
 import { Injectable } from '@nestjs/common';
 import { eq, asc, and, inArray, ne } from 'drizzle-orm';
-import { syncOperations } from '@/database/schema';
+import { syncOperations, vaults } from '@/database/schema';
 import { PartialSyncOperation, SyncOperation } from './sync.types';
 import { getSqliteRowsAffected } from '@/database/sqlite-result';
 
@@ -50,6 +50,76 @@ export class SyncRepository {
     return getSqliteRowsAffected(result) > 0;
   }
 
+  private vaultIdByNameSubquery(vaultName: string) {
+    return this.database.db
+      .select({ id: vaults.id })
+      .from(vaults)
+      .where(eq(vaults.name, vaultName));
+  }
+
+  async getSyncHistoryByVaultName(vaultName: string) {
+    return await this.database.db
+      .select()
+      .from(syncOperations)
+      .where(
+        inArray(syncOperations.vaultId, this.vaultIdByNameSubquery(vaultName)),
+      )
+      .orderBy(asc(syncOperations.updatedAt));
+  }
+
+  async getActiveSyncOperationByVaultName(vaultName: string) {
+    return await this.database.db
+      .select()
+      .from(syncOperations)
+      .where(
+        and(
+          inArray(
+            syncOperations.vaultId,
+            this.vaultIdByNameSubquery(vaultName),
+          ),
+          inArray(syncOperations.status, ['queued', 'running']),
+        ),
+      )
+      .limit(1)
+      .get();
+  }
+
+  async getRecentCompletedSyncOperationsByVaultName(
+    vaultName: string,
+    limit: number,
+  ) {
+    return await this.database.db
+      .select()
+      .from(syncOperations)
+      .where(
+        and(
+          inArray(
+            syncOperations.vaultId,
+            this.vaultIdByNameSubquery(vaultName),
+          ),
+          inArray(syncOperations.status, ['aborted', 'failed', 'success']),
+        ),
+      )
+      .limit(limit);
+  }
+
+  async abortQueuedSyncOperationByVaultName(vaultName: string) {
+    return await this.database.db
+      .update(syncOperations)
+      .set({ status: 'aborted' })
+      .where(
+        and(
+          inArray(
+            syncOperations.vaultId,
+            this.vaultIdByNameSubquery(vaultName),
+          ),
+          inArray(syncOperations.status, ['queued']),
+        ),
+      );
+  }
+
+  // --- id-based methods kept for internal use by the sync job runner ---
+
   async getSyncHistory(vaultId: string) {
     return await this.database.db
       .select()
@@ -86,6 +156,21 @@ export class SyncRepository {
       .where(
         and(
           eq(syncOperations.vaultId, vaultId),
+          inArray(syncOperations.status, ['queued', 'running']),
+        ),
+      );
+  }
+
+  async abortActiveSyncOperationByVaultName(vaultName: string) {
+    return await this.database.db
+      .update(syncOperations)
+      .set({ status: 'aborted' })
+      .where(
+        and(
+          inArray(
+            syncOperations.vaultId,
+            this.vaultIdByNameSubquery(vaultName),
+          ),
           inArray(syncOperations.status, ['queued', 'running']),
         ),
       );

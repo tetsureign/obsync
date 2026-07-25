@@ -1,11 +1,11 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { SyncQueue } from '@/sync-queue/sync-queue';
 import { SyncRepository } from '../sync.repository';
-import { SyncOperation, SyncStatus } from '../sync.types';
+import { SyncStatus } from '../sync.types';
 
 export class GetSyncStatusQuery {
   constructor(
-    public readonly vaultId: SyncOperation['vaultId'],
+    public readonly vaultName: string,
     public readonly lastNCompleted = 5,
   ) {}
 }
@@ -18,17 +18,18 @@ export class GetSyncStatusHandler implements IQueryHandler<GetSyncStatusQuery> {
   ) {}
 
   async execute(query: GetSyncStatusQuery): Promise<SyncStatus> {
-    const activeOperation = await this.syncRepository.getActiveSyncOperation(
-      query.vaultId,
-    );
+    const activeOperation =
+      await this.syncRepository.getActiveSyncOperationByVaultName(
+        query.vaultName,
+      );
 
     const recentOperations =
-      await this.syncRepository.getRecentCompletedSyncOperations(
-        query.vaultId,
+      await this.syncRepository.getRecentCompletedSyncOperationsByVaultName(
+        query.vaultName,
         query.lastNCompleted,
       );
 
-    const runtime = this.syncQueue.getVaultQueueStatus(query.vaultId);
+    const runtime = this.syncQueue.getVaultQueueStatus(query.vaultName);
 
     return { activeOperation, recentOperations, runtime };
   }

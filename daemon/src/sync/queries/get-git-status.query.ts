@@ -3,10 +3,9 @@ import { GitService } from '@/git/git.service';
 import { VaultRepository } from '@/vault/vault.repository';
 import { forwardRef, Inject } from '@nestjs/common';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
-import { SyncOperation } from '../sync.types';
 
 export class GetGitStatusQuery {
-  constructor(public readonly vaultId: SyncOperation['vaultId']) {}
+  constructor(public readonly vaultName: string) {}
 }
 
 @QueryHandler(GetGitStatusQuery)
@@ -18,10 +17,10 @@ export class GetGitStatusHandler implements IQueryHandler<GetGitStatusQuery> {
   ) {}
 
   async execute(query: GetGitStatusQuery) {
-    const vaultInfo = await this.vaultRepository.findById(query.vaultId);
+    const vaultInfo = await this.vaultRepository.findByName(query.vaultName);
 
     if (!vaultInfo) {
-      throw new VaultNotFoundError(query.vaultId);
+      throw new VaultNotFoundError(query.vaultName);
     }
 
     await this.gitService.validateVaultGitRepo(vaultInfo.localPath);

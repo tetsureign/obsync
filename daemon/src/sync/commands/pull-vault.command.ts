@@ -1,5 +1,4 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { SyncOperation } from '../sync.types';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
 import { VaultRepository } from '@/vault/vault.repository';
 import { GitService } from '@/git/git.service';
@@ -10,7 +9,7 @@ import { SyncOperationStillRunningError } from '../error/sync-still-running.erro
 import { SyncRepository } from '../sync.repository';
 
 export class PullVaultCommand {
-  constructor(public readonly vaultId: SyncOperation['vaultId']) {}
+  constructor(public readonly vaultName: string) {}
 }
 
 @CommandHandler(PullVaultCommand)
@@ -23,17 +22,17 @@ export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
   ) {}
 
   async execute(command: PullVaultCommand) {
-    const vaultInfo = await this.vaultRepository.findById(command.vaultId);
+    const vaultInfo = await this.vaultRepository.findByName(command.vaultName);
 
     if (!vaultInfo) {
-      throw new VaultNotFoundError(command.vaultId);
+      throw new VaultNotFoundError(command.vaultName);
     }
 
     await this.gitService.validateVaultGitRepo(vaultInfo.localPath);
     await this.gitService.getEffectiveRemote(vaultInfo.localPath);
 
-    if (await this.syncRepository.getActiveSyncOperation(command.vaultId)) {
-      throw new SyncOperationStillRunningError(command.vaultId, 'pull');
+    if (await this.syncRepository.getActiveSyncOperation(vaultInfo.id)) {
+      throw new SyncOperationStillRunningError(command.vaultName, 'pull');
     }
 
     try {

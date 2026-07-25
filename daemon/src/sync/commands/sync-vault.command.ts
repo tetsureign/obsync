@@ -1,6 +1,5 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { SyncRepository } from '../sync.repository';
-import { SyncOperation } from '../sync.types';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { VaultRepository } from '@/vault/vault.repository';
 import { VaultNotFoundError } from '@/vault/errors/vault-not-found.error';
@@ -12,7 +11,7 @@ import { SyncQueueRecordPersistenceError } from '../error/sync-queue-record-pers
 
 export class SyncVaultCommand {
   constructor(
-    public readonly vaultId: SyncOperation['vaultId'],
+    public readonly vaultName: string,
     public readonly filePaths: string[] = ['.'],
     public readonly commitMessage = `auto commit at ${currentInstantIso()}`,
   ) {}
@@ -28,31 +27,35 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
   ) {}
   private readonly logger = new Logger(SyncVaultHandler.name);
 
-  private async abortStaleSyncOperation(vaultId: string) {
-    const hasWorks = this.syncQueue.hasVaultWorks(vaultId);
-
-    if (hasWorks) {
+  private async abortStaleSyncOperation(vaultName: string) {
+    // Queue is keyed by name — no id lookup needed
+    if (this.syncQueue.hasVaultWorks(vaultName)) {
       return null;
     }
 
-    return this.repository.abortActiveSyncOperation(vaultId);
+    return this.repository.abortActiveSyncOperationByVaultName(vaultName);
   }
 
   async execute(command: SyncVaultCommand) {
     try {
-      const vaultInfo = await this.vaultRepository.findById(command.vaultId);
+      // VaultRepository lookup is unavoidable here: we need the resolved
+      // vault object (localPath, conflictStrategy, etc.) to pass into the
+      // job runner, and the vault id to create the sync_operation FK row.
+      const vaultInfo = await this.vaultRepository.findByName(
+        command.vaultName,
+      );
       if (!vaultInfo) {
-        throw new VaultNotFoundError(command.vaultId);
+        throw new VaultNotFoundError(command.vaultName);
       }
 
-      await this.abortStaleSyncOperation(command.vaultId);
+      await this.abortStaleSyncOperation(command.vaultName);
 
       const queuedOperation = await this.repository.queueSyncOperation(
         vaultInfo.id,
       );
 
       void this.syncQueue
-        .addToVaultQueue(vaultInfo.id, () =>
+        .addToVaultQueue(command.vaultName, () =>
           this.syncJobRunner.run({
             operation: queuedOperation,
             vault: vaultInfo,
@@ -69,7 +72,10 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
       return queuedOperation;
     } catch (error) {
       if (error instanceof DrizzleQueryError) {
-        throw new SyncQueueRecordPersistenceError(command.vaultId, error.cause);
+        throw new SyncQueueRecordPersistenceError(
+          command.vaultName,
+          error.cause,
+        );
       }
       throw error;
     }
