@@ -16,14 +16,14 @@ import { GetGitDiffHandler } from './queries/get-git-diff.query';
 import { GetGitStatusHandler } from './queries/get-git-status.query';
 import { GetSyncHistoryHandler } from './queries/get-sync-history.query';
 import { SyncController } from './sync.controller';
-import { ConflictRepository } from '@/conflict/conflict.repository';
+import { ConflictModule } from '@/conflict/conflict.module';
 
 @Module({
   imports: [
     DatabaseModule,
     GitModule,
     SyncQueueModule,
-    ConflictRepository,
+    ConflictModule,
     forwardRef(() => VaultModule),
   ],
   providers: [
