@@ -46,9 +46,14 @@ These are loose ends in otherwise-implemented features. None require new modules
 
 ### 1.2 Wire `obsync sync` CLI
 
+<details>
+<summary>Done</summary>
+
 - `Commands::Sync` in `cli/src/main.rs` currently only fetches the vault name and prints it — it never calls the sync API
 - Wire it to `api.sync_vault(vault_id, ...)` with a new `sync_vault()` method on `ApiClient`
 - Print the queued sync operation ID + status
+
+</details>
 
 ### 1.3 Update E2E Tests
 
