@@ -5,30 +5,10 @@
 
 ---
 
-## Dependency Graph (high-level)
+## Phase 1 — Foundation Fixes & Quickstart Demo
 
-```
-Phase 1: Foundation Fixes
-    ↓
-Phase 2: Daemon Hardening          ← blocks CLI from being reliable
-    ↓
-Phase 3: CLI Completion            ← needs lockfile port discovery + auth token
-    ↓
-Phase 4: Remote Self-Hosting       ← needs auth layer from Phase 2
-    ↓
-Phase 5: CLI Onboarding Wizard     ← needs CLI completion + lockfile + remote support
-    ↓
-Post-MVP: Auto-Sync, SSE, Config, obsync init
-```
-
----
-
-## Phase 1 — Foundation Fixes
-
-> **Scope**: Small, targeted corrections to already-implemented code.
-> **Plans addressed**: `sync-operation-robustness.md`, `architecture-decisions.md`, `vault-git-setup.md`
-
-These are loose ends in otherwise-implemented features. None require new modules.
+> **Scope**: Small, targeted corrections to already-implemented code & quickstart demo Docker template.
+> **Plans addressed**: `sync-operation-robustness.md`, `architecture-decisions.md`, `vault-git-setup.md`, `remote-daemon-selfhosting.md`
 
 ### 1.1 `MergeConflictError → conflict_record` in Runner
 
@@ -75,6 +55,12 @@ These are loose ends in otherwise-implemented features. None require new modules
 
 - Add tests per `architecture-decisions.md` checklist: startup abort, stale-abort before queue, in-process busy (no abort), merge conflict → `conflict_record` row created
 
+### 1.4 Demo Docker Setup
+
+- Minimal `docker-compose.yml` for evaluating `obsync-daemon` locally in Docker
+- Volume mount for sample vault and SQLite data directory
+- Health check probe (`GET /health`)
+
 ---
 
 ## Phase 2 — Daemon Hardening
@@ -114,7 +100,6 @@ These are loose ends in otherwise-implemented features. None require new modules
 
 - Full `config.toml` daemon settings loading is **post-MVP**
 - For MVP, all daemon settings come from env vars (existing `@nestjs/config` + `.env` is fine)
-- The CLI will write a minimal `~/.config/obsync/config.toml` in Phase 4 (Option C: remote daemon URL + API key) — this is CLI-side only, not a daemon ConfigModule
 
 ---
 
@@ -149,61 +134,37 @@ These are loose ends in otherwise-implemented features. None require new modules
 
 ---
 
-## Phase 4 — Remote Self-Hosting
+## Phase 4 — NAS Git Remote Specs
 
-> **Scope**: Full implementation of `remote-daemon-selfhosting.md`.
-> **Depends on**: Phase 2 auth guard (persistent API key is a superset of the local token)
+> **Scope**: Implementation of `remote-daemon-selfhosting.md`.
 
-### 4.1 Dual Auth Mode
+### 4.1 NAS Git Remote Documentation
 
-- Local daemon: per-session token from lockfile (Phase 2)
-- Remote daemon: persistent `OBSYNC_API_KEY` env var
-- The auth guard already validates a token; this just changes how the token is sourced
-
-### 4.2 `HOST` Binding Mode
-
-- Expose `HOST` env var; default to `127.0.0.1` (safe local-only default)
-- Remote/container deployments set `HOST=0.0.0.0`
-- When `HOST != 127.0.0.1`: use fixed `PORT`, skip lockfile write, enforce `OBSYNC_API_KEY` is set
-
-### 4.3 CORS Update
-
-- When `HOST=0.0.0.0`: set `origin: false`
-- Local stays as `origin: '127.0.0.1'`
-
-### 4.4 `PUID`/`PGID` Support
-
-- Drop privileges on startup when running inside Docker
-
-### 4.5 Docker Compose Template
-
-- `docker-compose.yml` with vault mount, SSH key mount, persistent data volume, healthcheck
-- `.env.example` with all required vars documented
+- Document self-hosting via NAS Git remotes (SSH keys, Gitea, bare repos)
 
 ---
 
-## Phase 5 — CLI Onboarding Wizard
+## Phase 5 — Unix Installer & Daemon Gate
 
 > **Scope**: Full implementation of `cli-daemon-onboarding.md`.
-> **Depends on**: Phase 2 (lockfile), Phase 3 (CLI completion), Phase 4 (remote mode)
+> **Depends on**: Phase 2 (lockfile), Phase 3 (CLI completion)
 
-### 5.1 Hard Daemon Gate
+### 5.1 Hard Daemon Gate & Offline Diagnostics
 
-- Upgrade the current soft warning (`eprintln!`) to an actual gate
-- If lockfile is missing/stale and no `OBSYNC_DAEMON_URL` override → trigger wizard (unless `--no-interactive` / `--batch`)
+- Upgrade CLI soft warning (`eprintln!`) to a hard daemon gate
+- If lockfile is missing/stale → print clear diagnostic error to `stderr` with service management commands and exit with non-zero code
 
-### 5.2 Interactive Setup Wizard
+### 5.2 Unix Installation Script (`install.sh`)
 
-- Use `inquire` or `dialoguer` Rust crate for terminal prompts
-- Options:
-  1. **Native Service** — write systemd user unit / launchd plist / Windows task, enable + start, verify via health probe
-  2. **Docker Container** — check `docker` is available, prompt vault dir + port, run `docker run ...`, verify
-  3. **Remote Daemon** — prompt URL + API key, verify connection, save to `~/.config/obsync/config.toml`
-  4. **Skip** — exit with a helpful message
+- Shell script for Linux and macOS
+- Installs `obsync` and `obsync-daemon` binaries into standard path (`~/.local/bin`)
+- Registers and starts native background service:
+  - **Linux**: `systemd` user service (`~/.config/systemd/user/obsync-daemon.service`)
+  - **macOS**: `launchd` plist (`~/Library/LaunchAgents/com.obsync.daemon.plist`)
 
 ### 5.3 `--no-interactive` / `--batch` Flag
 
-- Suppress wizard, fail immediately with non-zero exit code if daemon unreachable
+- Returns non-zero exit code immediately if daemon unreachable
 - For CI/CD, git hooks, scripting use
 
 ---

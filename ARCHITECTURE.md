@@ -287,6 +287,6 @@ In the final design, the CLI reads `~/.config/obsync/daemon.json` before every c
 | **Config export/import** | TOML vault registry export with interactive path remapping on import.                             |
 | **Cooperative abort**    | `abortRequestedAt` field on sync operations; runner checks between Git phases.                    |
 | **`stash-and-retry`**    | Conflict strategy. `stash()` and `stashPop()` already implemented in `GitService`.                |
-| **Daemon hardening**     | Lockfile, token auth guard, `env-paths` production path resolution. Phase 2.                      |
-| **Remote self-hosting**  | `OBSYNC_API_KEY`, `HOST=0.0.0.0` mode, Docker Compose template. Phase 4.                          |
-| **Onboarding wizard**    | CLI-driven setup: native service / Docker / remote daemon. Phase 5.                               |
+| **Daemon hardening**     | Lockfile, per-session token auth guard, `env-paths` production path resolution. Phase 2.          |
+| **Demo Docker Compose**  | Minimal demo `docker-compose.yml` for local container evaluation. Phase 1.                        |
+| **Unix Installer**       | `install.sh` script for Linux/macOS binary placement & systemd/launchd service setup. Phase 5.    |

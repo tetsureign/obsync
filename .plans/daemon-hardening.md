@@ -7,11 +7,11 @@
 
 ## Threat Model
 
-The daemon runs locally on the user's machine. The realistic threats are:
+The daemon runs locally on the user's machine (`127.0.0.1`). The realistic threats are:
 
-- **Rogue website** fetching from localhost → mitigated by existing CORS (`origin: 127.0.0.1`)
-- **Stray process** accidentally hitting the daemon → mitigated by token auth (see below)
-- **Malware** on the same user account → if it can read a token file, it already has direct access to vault files; the daemon adds no meaningful attack surface beyond what's already exposed
+- **Rogue website or cross-origin browser request** → CORS restricted to `127.0.0.1` + browser Private Network Access (PNA) + **per-session token auth** (custom `Authorization` header forces CORS preflight `OPTIONS` check and rejects unauthenticated requests)
+- **Stray process** accidentally hitting the daemon → mitigated by per-session token auth (see below)
+- **Malware** on the same user account → if it can read the token file (`daemon.json`), it already has direct access to vault files; the daemon adds no meaningful attack surface beyond what's already exposed
 
 Stronger auth mechanisms (mTLS, UDS) are **not worth the complexity** for this threat model.
 The effort is better spent on **input validation** (see below).

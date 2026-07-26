@@ -1,88 +1,68 @@
-# CLI Guided Setup & Daemon Lifecycle Management
+# Unix Installation Script & Daemon Lifecycle Management
 
-> Captured from a design session on 2026-07-22.
-> Defines the CLI onboarding flow, runtime daemon detection, and service management strategies (Docker, systemd, launchd, Windows Service).
+> Defines the installation strategy via `install.sh`, native OS background service integration (`systemd` / `launchd`), and CLI runtime daemon probe diagnostics.
 
 ---
 
 ## Overview
 
-To provide a zero-friction "just works" developer experience, the `obsync` Rust CLI includes an interactive first-run onboarding wizard. Users do not need to manually configure background services or write Docker compose files prior to using the CLI.
+To maintain a lightweight, instantaneous CLI and zero background overhead when idle, `obsync` employs a two-process local model:
+- The **daemon** (`obsync-daemon`) runs as a persistent background service managed by the OS init system (`systemd` on Linux, `launchd` on macOS).
+- The **CLI** (`obsync`) is a fast, stateless control interface.
+
+Installation and service registration are handled via a Unix installation shell script (`install.sh`), keeping the CLI binary small and free of interactive setup wizard complexity.
 
 ---
 
-## 1. Runtime Daemon Detection & Probe Strategy
+## 1. Unix Installation Script (`install.sh`)
 
-When a user executes any `obsync` CLI command (excluding `--help`, `--version`, or explicit non-daemon utility commands):
+For Linux and macOS desktop environments, installation is executed via a curl-friendly shell script:
 
-1. **Health Probe**: The CLI attempts an HTTP health check (`GET /health` or lockfile read) against the configured daemon address (default `http://127.0.0.1:3000` or lockfile port).
-2. **Daemon Responsive**: Execution proceeds immediately to the target subcommand.
-3. **Daemon Unreachable**: The CLI intercepts execution and triggers the **Guided Setup Wizard** (unless running in non-interactive mode).
-
----
-
-## 2. Interactive First-Run Setup Wizard
-
-The setup wizard uses terminal selection prompts (`inquire` or `dialoguer` Rust crates) to present deployment options:
-
-```text
-⚠️  No running obsync daemon detected at http://127.0.0.1:3000.
-
-? How would you like to set up the obsync daemon?
-  ❯ 1. Native Service (Recommended for local desktop: systemd / launchd / Windows Service)
-    2. Docker Container (Recommended for NAS / headless / container environments)
-    3. Connect to a Remote Daemon (Existing server or NAS URL)
-    4. Skip setup for now
+```bash
+curl -fsSL https://raw.githubusercontent.com/yourusername/obsync/main/install.sh | sh
 ```
 
-### Option A: Native Service Setup
-- **Action**:
-  1. Downloads or resolves the pre-compiled native daemon executable (Single Executable Application / Node bundle).
-  2. Registers and enables the background service for the current OS:
-     - **Linux**: Writes systemd user unit to `~/.config/systemd/user/obsync-daemon.service` and executes `systemctl --user enable --now obsync-daemon`.
-     - **macOS**: Writes launchd plist to `~/Library/LaunchAgents/com.obsync.daemon.plist` and executes `launchctl load`.
-     - **Windows**: Registers service or user Startup task.
-  3. Verifies startup via health check probe.
-
-### Option B: Docker Container Setup
-- **Action**:
-  1. Checks if Docker is installed and running (`docker info`).
-  2. Prompts user for Obsidian vault base directory (defaults to auto-detected `~/Documents/Obsidian` or system document path).
-  3. Prompts for host port exposure (default `3000`).
-  4. Automatically executes container initialization:
-     ```bash
-     docker run -d \
-       --name obsync-daemon \
-       --restart unless-stopped \
-       -p 3000:3000 \
-       -v <HOST_VAULT_DIR>:/vaults \
-       -v ~/.ssh:/root/.ssh:ro \
-       -v obsync-data:/app/data \
-       ghcr.io/yourusername/obsync-daemon:latest
-     ```
-  5. Verifies container health via HTTP probe.
-
-### Option C: Remote Daemon Setup
-- **Action**:
-  1. Prompts for remote daemon URL (e.g., `http://192.168.1.50:3000` or `https://obsync.example.com`).
-  2. Prompts for persistent API key / bearer token.
-  3. Verifies remote connection with a test request.
-  4. Saves remote endpoint and credential in `~/.config/obsync/config.toml`.
+### Installer Actions
+1. **System & Architecture Detection**: Identifies OS (`Linux` / `Darwin`) and CPU architecture (`x86_64` / `arm64`).
+2. **Binary Placement**: Downloads and installs pre-compiled `obsync` CLI and `obsync-daemon` binaries into `~/.local/bin` (or `/usr/local/bin`).
+3. **Background Service Registration**:
+   - **Linux (`systemd`)**:
+     - Writes user service unit to `~/.config/systemd/user/obsync-daemon.service`.
+     - Executes `systemctl --user daemon-reload` and `systemctl --user enable --now obsync-daemon`.
+   - **macOS (`launchd`)**:
+     - Writes LaunchAgent plist to `~/Library/LaunchAgents/com.obsync.daemon.plist`.
+     - Executes `launchctl load -w ~/Library/LaunchAgents/com.obsync.daemon.plist`.
+4. **Verification**: Probes `http://127.0.0.1:<port>/health` via lockfile to confirm clean startup.
 
 ---
 
-## 3. Path Translation & Mount Awareness
+## 2. Runtime Daemon Probe & Offline Diagnostics
 
-When running in Docker mode, file paths may differ between host and container:
+When a user executes any `obsync` CLI command (excluding `--help` or `--version`):
 
-- **Host Mirroring**: For simple setups, mounting host paths directly (`-v /home/user/Obsidian:/home/user/Obsidian`) allows 1:1 path resolution without translation.
-- **Base Directory Mapping**: When mounted as `-v /host/path:/vaults`, the CLI/daemon configuration translates host paths under `/host/path` to `/vaults` inside API requests.
+1. **Lockfile & Health Probe**:
+   - The CLI reads `~/.config/obsync/daemon.json` (mode `600`) to obtain the current ephemeral `port`, `pid`, and `token`.
+   - The CLI performs a PID liveness check (`kill(pid, 0)` equivalent) and issues `GET /health` with `Authorization: Bearer <token>`.
+2. **Daemon Responsive**: Execution proceeds immediately to the requested subcommand.
+3. **Daemon Unreachable**:
+   - The CLI prints a clear, non-blocking diagnostic message to `stderr` and exits with a non-zero code. No interactive prompts or wizards are presented.
+
+```text
+Error: obsync daemon is not running (checked lockfile at ~/.config/obsync/daemon.json).
+
+To start the background service:
+  Linux: systemctl --user start obsync-daemon
+  macOS: launchctl load ~/Library/LaunchAgents/com.obsync.daemon.plist
+
+Or install obsync using the setup script:
+  curl -fsSL https://raw.githubusercontent.com/.../install.sh | sh
+```
 
 ---
 
-## 4. Scripting & Non-Interactive Support
+## 3. Scripting & Batch Execution
 
-To prevent CLI commands from hanging in automated environments (CI/CD, scripts, git hooks):
+To support automated execution in scripts, CI/CD, and Git hooks:
 
-- Flags `--no-interactive` / `--batch` suppress the wizard and fail immediately with a non-zero exit code if the daemon is unreachable.
-- `OBSYNC_DAEMON_URL` environment variable overrides the target daemon URL.
+- Non-zero exit code (`1`) is returned immediately when the daemon is unreachable.
+- The `--batch` or `--no-interactive` flag ensures output is clean and formatted for non-TTY environments.

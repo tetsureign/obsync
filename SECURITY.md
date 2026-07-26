@@ -2,7 +2,7 @@
 
 ## Scope
 
-obsync is currently a **pre-release, local-only tool**. The daemon is designed to run on your own machine and is not intended for public network exposure at this stage.
+obsync is a **local-only tool**. The daemon runs exclusively on your local machine (`127.0.0.1`) alongside your Obsidian vaults. It is not intended for public network exposure or remote daemon binding. Remote synchronization (e.g. to a NAS, VPS, GitHub, or GitLab) is achieved natively via standard Git remotes (SSH / HTTPS).
 
 > ⚠️ **Pre-release notice**: The authentication layer described in this document is **not yet implemented**. See [Current status](#current-status) below.
 
@@ -12,11 +12,11 @@ obsync is currently a **pre-release, local-only tool**. The daemon is designed t
 
 The daemon runs locally and manages Git operations on your vault files. The realistic threats for a local deployment are:
 
-| Threat                                        | Mitigation                                                                                                                     |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Rogue website fetching from `localhost`       | CORS restricted to `127.0.0.1`                                                                                                 |
-| Stray process accidentally hitting the daemon | Per-session token auth _(planned — Phase 2)_                                                                                   |
-| Malware on the same user account              | If it can read your token file, it already has direct access to your vault files — the daemon adds no meaningful extra surface |
+| Threat | Mitigation |
+| --- | --- |
+| Rogue website or cross-origin browser request | CORS restricted to `127.0.0.1` + browser Private Network Access (PNA) + **Per-session Bearer token auth** (forces CORS preflight and rejects unauthenticated requests) |
+| Stray local process calling the daemon | **Per-session Bearer token auth** _(planned — Phase 2)_ |
+| Malware on the same user account | If it can read your lockfile token file (`~/.config/obsync/daemon.json`), it already has direct access to your vault files — the daemon adds no meaningful extra attack surface |
 
 Stronger mechanisms (mTLS, Unix Domain Sockets) are intentionally out of scope for the local threat model. The effort is better spent on input validation.
 
@@ -26,7 +26,7 @@ Stronger mechanisms (mTLS, Unix Domain Sockets) are intentionally out of scope f
 
 ### Per-session token authentication _(Phase 2)_
 
-On startup, the daemon will generate a random token and write a lockfile:
+On startup, the daemon generates a random token and writes a lockfile:
 
 ```json
 // ~/.config/obsync/daemon.json  (mode 600, owned by current user)
@@ -39,8 +39,9 @@ On startup, the daemon will generate a random token and write a lockfile:
 
 - Token is generated fresh on every daemon start and deleted on clean shutdown.
 - CLI reads the lockfile before every request and sends the token as `Authorization: Bearer <token>`.
+- Requiring a custom `Authorization` header forces web browsers to issue a CORS preflight (`OPTIONS`) request on any cross-origin fetch attempt, blocking unauthorized browser tabs.
 - Daemon validates via a NestJS guard — requests without a valid token are rejected with `401`.
-- CLI validates the `pid` in the lockfile before connecting, to detect stale lockfiles left by a crashed daemon.
+- CLI validates the `pid` in the lockfile before connecting to detect stale lockfiles left by a crashed daemon.
 
 ### Port binding
 
@@ -51,38 +52,17 @@ On startup, the daemon will generate a random token and write a lockfile:
 
 ### CORS
 
-- Restricted to `127.0.0.1` to prevent rogue browser pages from calling the daemon API.
+- Restricted to `127.0.0.1` to block cross-origin browser responses.
 
 ---
 
-## Remote / self-hosted deployments _(Phase 4)_
+## Remote synchronization & NAS security
 
-> ⚠️ Not yet implemented. Remote deployment is planned but not supported in the current release.
+obsync relies on standard Git transport security for remote syncing:
 
-Exposing the daemon on a network (e.g., NAS, VPS, homelab) introduces remote attack vectors. The following controls are designed for remote deployments:
-
-### Persistent API key
-
-Remote daemons will accept a persistent secret key configured via `OBSYNC_API_KEY` environment variable. All HTTP requests must include:
-
-```http
-Authorization: Bearer <OBSYNC_API_KEY>
-```
-
-### Transport encryption
-
-Plaintext HTTP over a network exposes the bearer token to interception. Recommended options:
-
-- **Tailscale / WireGuard** (recommended for homelabs): bind the daemon to a private mesh VPN interface. No public ports exposed.
-- **Reverse proxy (Caddy / Nginx / Traefik)**: terminate TLS with Let's Encrypt for domain access.
-
-### Host binding
-
-Remote deployments set `HOST=0.0.0.0` to accept connections from the network. The safe default remains `127.0.0.1`.
-
-### CORS for remote deployments
-
-When binding to `0.0.0.0`, CORS will be set to `origin: false` to block browser cross-origin requests.
+- **SSH Remotes (`git@your-nas:vault.git`)**: Leverages your system's SSH keys (`~/.ssh/id_*`) and SSH config.
+- **HTTPS Remotes**: Uses system Git credential helpers (macOS Keychain, Git Credential Manager, SSH agent).
+- **Self-Hosted NAS**: Run a standard Git server (e.g. Gitea, bare Git repository over SSH) on your NAS. `obsync-daemon` runs locally on your workstation/laptop and syncs to your NAS via native Git commands.
 
 ---
 
@@ -99,15 +79,15 @@ The daemon touches the filesystem and runs Git operations. Surfaces to harden (t
 
 ## Current status
 
-| Control                                   | Status                           |
-| ----------------------------------------- | -------------------------------- |
-| CORS restricted to `127.0.0.1`            | ✅ Implemented                   |
-| Daemon bound to `127.0.0.1`               | ✅ Implemented                   |
+| Control | Status |
+| --- | --- |
+| CORS restricted to `127.0.0.1` | ✅ Implemented |
+| Daemon bound to `127.0.0.1` | ✅ Implemented |
 | Per-session token auth (lockfile + guard) | ❌ Not yet implemented — Phase 2 |
-| OS-assigned ephemeral port (port 0)       | ❌ Not yet — fixed port `3000`   |
-| Lockfile PID validation                   | ❌ Not yet — Phase 2             |
-| Remote deployment controls (API key, TLS) | ❌ Not yet — Phase 4             |
-| Input validation hardening                | ❌ Post-MVP                      |
+| OS-assigned ephemeral port (port 0) | ❌ Not yet — fixed port `3000` |
+| Lockfile PID validation | ❌ Not yet — Phase 2 |
+| Remote NAS sync via Git remotes (SSH/HTTPS) | ✅ Supported natively by Git |
+| Input validation hardening | ❌ Post-MVP |
 
 **Until Phase 2 lands, do not expose the daemon port to any network interface.** It is unauthenticated.
 
