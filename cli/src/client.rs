@@ -37,6 +37,29 @@ pub struct CreateVaultRequest {
     pub conflict_strategy: Option<String>,
 }
 
+#[derive(Debug, Serialize, Default)]
+struct SyncVaultBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file_paths: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    commit_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncOperation {
+    pub id: String,
+    pub vault_id: String,
+    pub status: String,
+    pub step: String,
+    pub error: Option<String>,
+    pub commit_sha: Option<String>,
+    pub started_at: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct HealthResponse {
@@ -154,9 +177,10 @@ impl ApiClient {
         self.handle_response(resp).await
     }
 
-    /// Fetch a single vault by ID (`GET /vaults/:id`).
-    pub async fn get_vault(&self, id: &str) -> Result<Vault, DaemonError> {
-        let url = format!("{}/vaults/{}", self.base_url, id);
+    /// Fetch a single vault by name (`GET /vaults/:name`).
+    #[allow(dead_code)]
+    pub async fn get_vault(&self, name: &str) -> Result<Vault, DaemonError> {
+        let url = format!("{}/vaults/{}", self.base_url, name);
         let resp = self
             .client
             .get(&url)
@@ -181,13 +205,37 @@ impl ApiClient {
         self.handle_response(resp).await
     }
 
-    /// Delete a vault by ID (`DELETE /vaults/:id`).
+    /// Delete a vault by name (`DELETE /vaults/:name`).
     #[allow(dead_code)]
-    pub async fn delete_vault(&self, id: &str) -> Result<bool, DaemonError> {
-        let url = format!("{}/vaults/{}", self.base_url, id);
+    pub async fn delete_vault(&self, name: &str) -> Result<bool, DaemonError> {
+        let url = format!("{}/vaults/{}", self.base_url, name);
         let resp = self
             .client
             .delete(&url)
+            .send()
+            .await
+            .map_err(DaemonError::Network)?;
+
+        self.handle_response(resp).await
+    }
+
+    // Sync
+    /// Trigger a sync for a vault by name (`POST /vaults/:name/sync`).
+    pub async fn trigger_sync(
+        &self,
+        name: &str,
+        file_paths: Option<Vec<String>>,
+        commit_message: Option<String>,
+    ) -> Result<SyncOperation, DaemonError> {
+        let url = format!("{}/vaults/{}/sync", self.base_url, name);
+        let body = SyncVaultBody {
+            file_paths,
+            commit_message,
+        };
+        let resp = self
+            .client
+            .post(&url)
+            .json(&body)
             .send()
             .await
             .map_err(DaemonError::Network)?;

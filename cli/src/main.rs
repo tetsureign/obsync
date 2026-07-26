@@ -1,7 +1,7 @@
 mod client;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use client::{ApiClient, CreateVaultRequest, DaemonError};
 use normpath::PathExt;
 use std::path::Path;
@@ -28,8 +28,8 @@ enum Commands {
         action: VaultCommands,
     },
     Sync {
-        /// Vault ID to sync
-        vault_id: String,
+        #[command(flatten)]
+        args: SyncArgs,
     },
 }
 
@@ -41,6 +41,15 @@ enum VaultCommands {
         #[arg(short, long)]
         name: Option<String>,
     },
+}
+
+#[derive(Args)]
+struct SyncArgs {
+    name: String,
+    #[arg(short, long, num_args = 1..)]
+    file_paths: Option<Vec<String>>,
+    #[arg(short, long)]
+    commit_message: Option<String>,
 }
 
 #[tokio::main]
@@ -88,9 +97,12 @@ async fn main() -> Result<()> {
                 }
             }
         },
-        Commands::Sync { vault_id } => match api.get_vault(&vault_id).await {
-            Ok(vault) => {
-                println!("Syncing vault '{}' (ID: {})...", vault.name, vault.id);
+        Commands::Sync { args } => match api
+            .trigger_sync(&args.name, args.file_paths, args.commit_message)
+            .await
+        {
+            Ok(op) => {
+                println!("✅ Sync operation '{}' started [status: {}, step:{}]", op.id, op.status, op.step);
             }
             Err(err) => handle_daemon_error(err),
         },
