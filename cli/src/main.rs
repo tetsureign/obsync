@@ -1,8 +1,8 @@
 mod client;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand};
-use client::{ApiClient, CreateVaultRequest, DaemonError};
+use client::{ApiClient, CreateVaultRequest};
 use normpath::PathExt;
 use std::path::Path;
 
@@ -54,7 +54,10 @@ struct SyncArgs {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cli = Cli::parse();
+    run(Cli::parse()).await
+}
+
+async fn run(cli: Cli) -> Result<()> {
     let api = ApiClient::new(&cli.daemon_url)?;
 
     if !api.health_check().await {
@@ -63,64 +66,50 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Vault { action } => match action {
-            VaultCommands::List => match api.list_vaults().await {
-                Ok(vaults) => {
-                    if vaults.is_empty() {
-                        println!("No vaults configured.");
-                    } else {
-                        println!("Vaults (total {}):", vaults.len());
-                        for v in vaults {
-                            println!("  • {} [{}] -> {}", v.name, v.id, v.local_path);
-                        }
+            VaultCommands::List => {
+                let vaults = api.list_vaults().await?;
+
+                if vaults.is_empty() {
+                    println!("No vaults configured.");
+                } else {
+                    println!("Vaults (total {}):", vaults.len());
+                    for v in vaults {
+                        println!("  • {} [{}] -> {}", v.name, v.id, v.local_path);
                     }
                 }
-                Err(err) => handle_daemon_error(err),
-            },
+            }
             VaultCommands::Add { name, path } => {
-                let req = CreateVaultRequest {
-                    local_path: Path::new(&path)
-                        .normalize()
-                        .unwrap()
-                        .as_path()
-                        .to_string_lossy()
-                        .into_owned(),
-                    name: name,
-                    auto_sync: None,
-                    sync_interval: None,
-                    conflict_strategy: None,
-                };
-                match api.add_vault(req).await {
-                    Ok(vault) => {
-                        println!("✅ Added vault '{}' with ID: {}", vault.name, vault.id);
-                    }
-                    Err(err) => handle_daemon_error(err),
-                }
+                let local_path = Path::new(&path)
+                    .normalize()
+                    .context("failed to normalize vault path")?
+                    .as_path()
+                    .to_string_lossy()
+                    .into_owned();
+
+                let vault = api
+                    .add_vault(CreateVaultRequest {
+                        local_path,
+                        name,
+                        auto_sync: None,
+                        sync_interval: None,
+                        conflict_strategy: None,
+                    })
+                    .await?;
+
+                println!("✅ Added vault '{}' with ID: {}", vault.name, vault.id);
             }
         },
-        Commands::Sync { args } => match api
-            .trigger_sync(&args.name, args.file_paths, args.commit_message)
-            .await
-        {
-            Ok(op) => {
-                println!("✅ Sync operation '{}' started [status: {}, step:{}]", op.id, op.status, op.step);
-            }
-            Err(err) => handle_daemon_error(err),
-        },
+        Commands::Sync { args } => {
+            let op = api
+                .trigger_sync(&args.name, args.file_paths, args.commit_message)
+                .await?;
+
+            println!(
+                "✅ Sync operation '{}' started [status: {}, step: {}]",
+                op.id, op.status, op.step
+            );
+        }
     }
 
     Ok(())
-}
-
-fn handle_daemon_error(err: DaemonError) {
-    match err {
-        DaemonError::Api(api_err) => {
-            eprintln!("❌ {}", api_err.message);
-        }
-        DaemonError::Network(net_err) => {
-            eprintln!("🌐 Network error: {net_err}");
-        }
-        DaemonError::Other(other_err) => {
-            eprintln!("❌ Error: {other_err}");
-        }
-    }
 }
