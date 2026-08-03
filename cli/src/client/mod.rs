@@ -2,7 +2,10 @@ mod error;
 mod models;
 
 pub(crate) use error::DaemonError;
-pub(crate) use models::{CreateVaultRequest, EditVaultRequest, SyncOperation, Vault};
+pub(crate) use models::{
+    CompletedSyncOperation, CreateVaultRequest, EditVaultRequest, SyncOperation,
+    SyncStatusResponse, Vault,
+};
 
 use anyhow::{Context, Result};
 use reqwest::{Client, Response};
@@ -152,6 +155,24 @@ impl ApiClient {
             .client
             .post(&url)
             .json(&body)
+            .send()
+            .await
+            .map_err(DaemonError::Network)?;
+
+        self.handle_response(resp).await
+    }
+
+    /// Get vault sync status by name (`GET /vaults/:name/status`).
+    pub(crate) async fn get_sync_status(
+        &self,
+        name: &str,
+        recent_sync_limit: Option<u32>,
+    ) -> Result<SyncStatusResponse, DaemonError> {
+        let url = format!("{}/vaults/{}/status", self.base_url, name);
+        let resp = self
+            .client
+            .get(&url)
+            .query(&[("recentSyncLimit", recent_sync_limit)])
             .send()
             .await
             .map_err(DaemonError::Network)?;

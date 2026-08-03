@@ -64,9 +64,22 @@ pub(crate) enum VaultCommands {
 
 #[derive(Args)]
 pub(crate) struct SyncArgs {
-    pub(crate) name: String,
+    #[command(subcommand)]
+    pub(crate) action: Option<SyncAction>,
+
+    /// Vault name (required when triggering a sync directly)
+    pub(crate) name: Option<String>,
     #[arg(short, long, num_args = 1..)]
     pub(crate) file_paths: Option<Vec<String>>,
     #[arg(short, long)]
     pub(crate) commit_message: Option<String>,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum SyncAction {
+    Status {
+        name: String,
+        #[arg(short, long)]
+        recent_sync_limit: Option<u32>,
+    },
 }

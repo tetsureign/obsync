@@ -67,6 +67,46 @@ pub(crate) struct SyncOperation {
     pub(crate) updated_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CompletedSyncOperation {
+    pub(crate) id: String,
+    pub(crate) vault_id: String,
+    pub(crate) status: String,
+    pub(crate) step: String,
+    pub(crate) error: Option<String>,
+    pub(crate) commit_sha: Option<String>,
+    pub(crate) started_at: String,
+    pub(crate) created_at: String,
+    pub(crate) updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SyncRuntimeStatus {
+    pub(crate) has_in_memory_work: bool,
+    pub(crate) queued_count: usize,
+    pub(crate) running_count: usize,
+    pub(crate) running_tasks: Vec<SyncQueueRunningTask>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SyncStatusResponse {
+    pub(crate) active_operations: Option<CompletedSyncOperation>,
+    pub(crate) recent_operations: Vec<CompletedSyncOperation>,
+    pub(crate) runtime: SyncRuntimeStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SyncQueueRunningTask {
+    pub(crate) id: Option<String>,
+    pub(crate) priority: u64,
+    pub(crate) start_time: u64,
+    pub(crate) timeout: Option<u64>,
+}
+
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub(crate) struct HealthResponse {
