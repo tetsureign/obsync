@@ -29,6 +29,21 @@ pub(crate) struct CreateVaultRequest {
     pub(crate) conflict_strategy: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct EditVaultRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) local_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) auto_sync: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) sync_interval: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) conflict_strategy: Option<String>,
+}
+
 #[derive(Debug, Serialize, Default)]
 pub(super) struct SyncVaultBody {
     #[serde(skip_serializing_if = "Option::is_none")]

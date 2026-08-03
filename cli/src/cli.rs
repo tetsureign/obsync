@@ -34,6 +34,31 @@ pub(crate) enum VaultCommands {
         path: String,
         #[arg(short, long)]
         name: Option<String>,
+        #[arg(short, long)]
+        auto_sync: Option<bool>,
+        #[arg(short = 'i', long)]
+        sync_interval: Option<u64>,
+        #[arg(short, long)]
+        conflict_strategy: Option<String>,
+    },
+    Info {
+        name: String,
+    },
+    Delete {
+        name: String,
+    },
+    Edit {
+        name: String,
+        #[arg(short = 'n', long)]
+        new_name: Option<String>,
+        #[arg(short = 'p', long)]
+        new_path: Option<String>,
+        #[arg(short, long)]
+        auto_sync: Option<bool>,
+        #[arg(short = 'i', long)]
+        sync_interval: Option<u64>,
+        #[arg(short, long)]
+        conflict_strategy: Option<String>,
     },
 }
 

@@ -2,6 +2,7 @@ mod cli;
 mod client;
 mod commands;
 mod output;
+mod utils;
 
 use anyhow::Result;
 use clap::Parser;

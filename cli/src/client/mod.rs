@@ -2,7 +2,7 @@ mod error;
 mod models;
 
 pub(crate) use error::DaemonError;
-pub(crate) use models::{CreateVaultRequest, SyncOperation, Vault};
+pub(crate) use models::{CreateVaultRequest, EditVaultRequest, SyncOperation, Vault};
 
 use anyhow::{Context, Result};
 use reqwest::{Client, Response};
@@ -105,8 +105,25 @@ impl ApiClient {
         self.handle_response(resp).await
     }
 
+    /// Edit an existing vault by name (`PUT /vaults/:name`).
+    pub(crate) async fn edit_vault(
+        &self,
+        name: &str,
+        req: EditVaultRequest,
+    ) -> Result<Vault, DaemonError> {
+        let url = format!("{}/vaults/{}", self.base_url, name);
+        let resp = self
+            .client
+            .put(&url)
+            .json(&req)
+            .send()
+            .await
+            .map_err(DaemonError::Network)?;
+
+        self.handle_response(resp).await
+    }
+
     /// Delete a vault by name (`DELETE /vaults/:name`).
-    #[allow(dead_code)]
     pub(crate) async fn delete_vault(&self, name: &str) -> Result<bool, DaemonError> {
         let url = format!("{}/vaults/{}", self.base_url, name);
         let resp = self
