@@ -100,6 +100,16 @@ async fn edit(
         None
     };
 
+    if new_name.is_none()
+        && local_path.is_none()
+        && auto_sync.is_none()
+        && sync_interval.is_none()
+        && conflict_strategy.is_none()
+    {
+        println!("⚠️ No changes specified for vault '{}'", name);
+        return Ok(());
+    }
+
     let vault = api
         .edit_vault(
             &name,

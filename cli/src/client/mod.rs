@@ -114,7 +114,7 @@ impl ApiClient {
         let url = format!("{}/vaults/{}", self.base_url, name);
         let resp = self
             .client
-            .put(&url)
+            .patch(&url)
             .json(&req)
             .send()
             .await
