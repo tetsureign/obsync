@@ -103,7 +103,7 @@ pub(crate) struct SyncStatusResponse {
 pub(crate) struct SyncQueueRunningTask {
     pub(crate) id: Option<String>,
     pub(crate) priority: u64,
-    pub(crate) start_time: u64,
+    pub(crate) start_time: i64,
     pub(crate) timeout: Option<u64>,
 }
 
