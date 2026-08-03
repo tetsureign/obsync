@@ -20,16 +20,6 @@ The main flow is:
 
 `CLI → localhost HTTP API → daemon → local vault/Git remote`
 
-The daemon uses CQRS-style modules:
-
-- `vault/`: vault registration and configuration
-- `sync/`: synchronization commands, queries, runner, and history
-- `git/`: the only boundary for `simple-git`
-- `sync-queue/`: per-vault serialized work queues
-- `database/`: SQLite + Drizzle ORM
-- `conflict/`: conflict records
-- `common/`: shared errors, filters, and utilities
-
 ## Important invariants
 
 - All Git operations go through `GitService`.
@@ -49,38 +39,26 @@ The daemon uses CQRS-style modules:
   filter can preserve stable error codes and HTTP statuses.
 - Database schema changes require a Drizzle migration.
 
-## Code conventions
-
-Daemon:
-
-- Commands belong in `src/**/commands`.
-- Queries belong in `src/**/queries`.
-- DTOs and Zod schemas belong in `src/**/dto`.
-- Module-specific errors belong in that module’s `errors` directory.
-- Use the existing `@/` TypeScript path alias.
-
-CLI:
-
-- `cli/src/main.rs` owns argument parsing and presentation.
-- `cli/src/client.rs` owns HTTP requests, DTOs, and daemon error decoding.
-- Preserve the daemon’s camelCase JSON contract using the existing serde
-  conventions.
-
 ## Planning guidance
 
 For planning tasks:
 
-1. Start from the current implementation and tests.
+1. Start from the current implementation.
 2. Treat `.plans/` as proposed or historical design unless confirmed by code.
 3. Identify the exact modules and files affected.
 4. Call out API, database, queue, or sync-state-machine changes explicitly.
-5. When a daemon API changes, include the corresponding CLI client and tests.
+5. When a daemon API changes, include the corresponding CLI client (unless not implemented yet).
 6. Prefer the smallest change that preserves the existing boundaries.
 7. Do not restate the full architecture; reference the relevant source files or
    documentation sections instead.
 
 When documentation and implementation disagree, mention the discrepancy and use
 the implementation/tests as the current source of truth.
+
+## Testing strategy
+
+- This project prefers integration tests (named "e2e" in the daemon) and CLI-to-daemon end-to-end tests over unit tests. Only write unit tests to check application-level behaviors or utils. Applies for both CLI and daemon
+- Don't add tests while writing codes
 
 ## Verification commands
 
@@ -90,7 +68,6 @@ Daemon:
 cd daemon
 pnpm run build
 pnpm run lint
-pnpm run test
 pnpm run test:e2e
 ```
 
@@ -108,7 +85,6 @@ CLI:
 cd cli
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
-cargo test
 cargo build
 ```
 
