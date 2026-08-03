@@ -46,7 +46,8 @@ export class SyncJobRunner {
       await this.startStepOrThrow(operation, 'commit');
       commitSha = await this.gitService
         .commit(vault.localPath, commitMessage)
-        .then((result) => result.commit);
+        .then((result) => result.commit)
+        .then((commit) => (commit == '' ? null : commit));
 
       await this.startStepOrThrow(operation, 'push');
       await this.gitService.push(vault.localPath);
