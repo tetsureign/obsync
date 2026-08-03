@@ -56,7 +56,7 @@ export class SyncController {
     @Query() query: GetSyncStatusQueryDto,
   ): Promise<SyncStatus> {
     return await this.queryBus.execute(
-      new GetSyncStatusQuery(param.name, query.lastNCompletedSync),
+      new GetSyncStatusQuery(param.name, query.recentSyncLimit),
     );
   }
 

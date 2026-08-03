@@ -6,7 +6,7 @@ import { SyncStatus } from '../sync.types';
 export class GetSyncStatusQuery {
   constructor(
     public readonly vaultName: string,
-    public readonly lastNCompleted = 5,
+    public readonly recentSyncLimit = 5,
   ) {}
 }
 
@@ -26,7 +26,7 @@ export class GetSyncStatusHandler implements IQueryHandler<GetSyncStatusQuery> {
     const recentOperations =
       await this.syncRepository.getRecentCompletedSyncOperationsByVaultName(
         query.vaultName,
-        query.lastNCompleted,
+        query.recentSyncLimit,
       );
 
     const runtime = this.syncQueue.getVaultQueueStatus(query.vaultName);

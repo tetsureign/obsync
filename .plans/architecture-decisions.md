@@ -73,7 +73,7 @@ The plan for cooperative abort (adding `abortRequestedAt` to the schema, `reques
 Returns:
 
 - The **active operation** (if one exists — `queued` or `running`), or `null`.
-- The **last N completed operations** for the vault (configurable via `lastNCompleted`, default 5).
+- The **last N completed operations** for the vault (configurable via `recentSyncLimit`, default 5).
 - Runtime queue state from `SyncQueue.getVaultQueueStatus()`.
 
 Implemented in `src/sync/queries/get-sync-status.query.ts`.
@@ -128,8 +128,8 @@ Kept in the schema. Reserved for **post-MVP auto-sync** when a file system watch
 WAL mode and foreign keys enabled in `Database.configure()`:
 
 ```ts
-this.db.$client.exec('PRAGMA journal_mode = WAL');
-this.db.$client.exec('PRAGMA foreign_keys = ON');
+this.db.$client.exec("PRAGMA journal_mode = WAL");
+this.db.$client.exec("PRAGMA foreign_keys = ON");
 ```
 
 ---
@@ -175,14 +175,14 @@ Do **not** add resume-specific tests for MVP.
 
 ## Implementation Status
 
-| Item | Status |
-|---|---|
-| `hasVaultWork(vaultId)` on `SyncQueue` + stale-abort logic | ✅ |
-| `StartupReconciliationService` (`OnApplicationBootstrap`) | ✅ |
-| WAL mode in `Database` | ✅ |
+| Item                                                             | Status       |
+| ---------------------------------------------------------------- | ------------ |
+| `hasVaultWork(vaultId)` on `SyncQueue` + stale-abort logic       | ✅           |
+| `StartupReconciliationService` (`OnApplicationBootstrap`)        | ✅           |
+| WAL mode in `Database`                                           | ✅           |
 | `ConflictModule` / runner `MergeConflictError → conflict_record` | ❌ Phase 1.1 |
-| `GetSyncStatusQuery` (active op + last N + runtime) | ✅ |
-| Integration test suite | ❌ Phase 1.3 |
+| `GetSyncStatusQuery` (active op + last N + runtime)              | ✅           |
+| Integration test suite                                           | ❌ Phase 1.3 |
 
 ### Post-MVP (deferred)
 
