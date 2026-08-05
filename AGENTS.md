@@ -62,6 +62,8 @@ the implementation/tests as the current source of truth.
 
 ## Verification commands
 
+Only use them when edits are meaningfully big (e.g. new features, big refactors). On tiny changes, don't bother
+
 Daemon:
 
 ```sh

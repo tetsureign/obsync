@@ -249,9 +249,7 @@ The CLI has no Git logic. It sends HTTP requests to the daemon and renders the r
 
 ### Daemon discovery
 
-> ⚠️ Lockfile-based port discovery is not yet implemented (Phase 2). Currently uses a hardcoded default `http://127.0.0.1:3000`, overridable via `OBSYNC_DAEMON_URL` env var.
-
-In the final design, the CLI reads `~/.config/obsync/daemon.json` before every command to get the current port and session token. It validates the PID before connecting to detect stale lockfiles.
+The daemon listens on a fixed default port (`7274`), overridable via `PORT` env var. The CLI defaults to `http://127.0.0.1:7274`, overridable via `OBSYNC_DAEMON_URL` env var. In Phase 2, the lockfile (`~/.config/obsync/daemon.json`) will carry `{ token, pid }` for authentication and PID validation — the port remains fixed.
 
 ### Commands
 

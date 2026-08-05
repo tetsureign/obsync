@@ -7,7 +7,7 @@ pub(crate) struct Cli {
     #[arg(
         long,
         env = "OBSYNC_DAEMON_URL",
-        default_value = "http://127.0.0.1:3000"
+        default_value = "http://127.0.0.1:7274"
     )]
     pub(crate) daemon_url: String,
 

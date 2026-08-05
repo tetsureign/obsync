@@ -25,7 +25,6 @@ On startup, the daemon generates a random token and writes a lockfile:
 ```json
 // ~/.config/obsync/daemon.json  (mode 600, owned by current user)
 {
-  "port": 38291,
   "token": "...",
   "pid": 12345
 }
@@ -41,32 +40,29 @@ to detect stale lockfiles left by a crashed daemon.
 
 ### Why not stronger auth?
 
-| Option | Verdict |
-|---|---|
-| Unix Domain Socket | Cross-platform problem: tokio doesn't support UDS on Windows |
-| Named Pipes | Different APIs per OS; NestJS has no native support |
-| mTLS | Massive complexity for zero real-world gain on a local tool |
-| Env var / hardcoded key | Readable by other processes / visible in open-source repo |
-| **Per-session token file (600)** | ✅ Simple, rotates, good enough for the threat model |
+| Option                           | Verdict                                                      |
+| -------------------------------- | ------------------------------------------------------------ |
+| Unix Domain Socket               | Cross-platform problem: tokio doesn't support UDS on Windows |
+| Named Pipes                      | Different APIs per OS; NestJS has no native support          |
+| mTLS                             | Massive complexity for zero real-world gain on a local tool  |
+| Env var / hardcoded key          | Readable by other processes / visible in open-source repo    |
+| **Per-session token file (600)** | ✅ Simple, rotates, good enough for the threat model         |
 
 ---
 
-## Port Discovery: Bind to Port 0
+## Port: Fixed Default (`7274`)
 
-The daemon binds to **port 0** — the OS assigns a free ephemeral port — then reads back the
-assigned port and writes it to the lockfile above.
+The daemon binds to a **fixed default port `7274`**, overridable via `PORT` env var (dev) or
+`config.toml` `preferred_port` (production, post-MVP).
 
-```ts
-// main.ts
-await app.listen(0, '127.0.0.1');
-const port = app.getHttpServer().address().port;
-await writeLockfile({ port, token, pid: process.pid });
-```
+**Why not port 0 (OS-assigned)?**
+An OS-assigned ephemeral port could later be needed by another application. That app would
+fail with an opaque bind error while obsync is the actual culprit — the user has to debug
+two tools simultaneously. With a fixed port, any conflict surfaces immediately and obviously
+as a daemon startup failure (`EADDRINUSE`), with a single clear fix (change the port).
 
-- Eliminates `EADDRINUSE` errors entirely — NestJS does not auto-increment on port conflict.
-- CLI always reads the current port from `daemon.json`; no hardcoded port assumption.
-- A preferred port hint (e.g. `3000`) can live in `config.toml` for readability in dev, but
-  the daemon always writes the _actual_ port to the lockfile.
+**Lockfile impact:** the lockfile (`daemon.json`) carries only `{ token, pid }`. The port is
+always known; the CLI never needs to discover it from a file.
 
 ---
 
@@ -104,8 +100,8 @@ Use [`env-paths`](https://www.npmjs.com/package/env-paths) (Node) in the daemon 
 platform-correct paths at runtime:
 
 ```ts
-import envPaths from 'env-paths';
-const paths = envPaths('obsync', { suffix: '' });
+import envPaths from "env-paths";
+const paths = envPaths("obsync", { suffix: "" });
 // paths.config → ~/.config/obsync
 // paths.data   → ~/.local/share/obsync
 ```
@@ -114,7 +110,7 @@ const paths = envPaths('obsync', { suffix: '' });
 
 ```toml
 [daemon]
-preferred_port = 3000   # hint only; actual port always read from daemon.json
+preferred_port = 7274   # configurable override; fixed default in code
 log_level = "info"
 
 [database]
@@ -159,7 +155,7 @@ This replaces the current ad-hoc `ConfigService` `.env` usage for production con
 
 > These are all **post-CLI-completion** unless noted.
 
-1. **Lockfile write on startup** (port + token + pid) — needed for CLI to connect
+1. **Lockfile write on startup** (token + pid only; port is fixed) — needed for CLI auth
 2. **NestJS auth guard** — validate `Authorization: Bearer` token on all routes
 3. **Lockfile delete on shutdown** — NestJS `OnApplicationShutdown` lifecycle hook
 4. **`env-paths` integration** — production DB and config path resolution

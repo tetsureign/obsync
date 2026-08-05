@@ -8,44 +8,45 @@
 
 ## Current state (Phase 1)
 
-Fixed port `3000`, no auth, no lockfile. `PORT` env var is baked into the unit:
+Fixed default port `7274`, no auth, no lockfile. `PORT` env var is set in the unit:
 
 ```ini
-Environment=PORT=3000
+Environment=NODE_ENV=production
+Environment=PORT=7274
 Environment=DB_FILE_NAME=file:%h/.local/share/obsync/obsync.db
 ```
 
----
-
-## Phase 2.1 — Port 0 binding + lockfile write
-
-**Daemon change** (`main.ts`): bind to port 0 → OS assigns a free port → daemon
-writes `~/.config/obsync/daemon.json` with `{ port, token, pid }`.
-
-**Service file change**: remove the hardcoded `PORT` env var. The daemon now
-picks its own port dynamically — passing `PORT=3000` via the unit would override
-that and break the intent.
-
-```diff
--Environment=PORT=3000
-```
-
-No other service file changes. The lockfile path (`~/.config/obsync/daemon.json`)
-is written by the daemon itself using `env-paths`; the unit doesn't need to know
-about it.
+Port override (until `ConfigModule` lands): use a systemd drop-in —
+`systemctl --user edit obsync-daemon.service` and set `Environment=PORT=8080`.
+When `config.toml` is implemented, `preferred_port` there is the canonical override path.
 
 ---
 
-## Phase 2.4 — `env-paths` + production DB path
+## Phase 2.1 — Lockfile write on startup (token + pid)
+
+**Daemon change** (`main.ts`): on startup, generate a random bearer token and write
+`~/.config/obsync/daemon.json` with `{ token, pid }`. Port is **not** in the lockfile
+— it remains fixed at `7274` (or whatever `PORT` env var / `config.toml` specifies).
+
+**Service file change**: none. `PORT=7274` stays in the unit. The lockfile introduces
+auth, not port discovery.
+
+---
+
+## Phase 2.4 — `env-paths` + production DB path + ConfigModule
 
 **Daemon change**: daemon resolves the DB path at runtime via `env-paths`
 (`~/.local/share/obsync/obsync.db` on Linux) instead of reading `DB_FILE_NAME`.
+The `ConfigModule` also reads `~/.config/obsync/config.toml`, which provides
+`preferred_port` as the canonical user override for the port.
 
-**Service file change**: remove the `DB_FILE_NAME` env var. Once the daemon
-uses `env-paths` for production path resolution, passing `DB_FILE_NAME` via
-the unit is redundant and may conflict with the daemon's own logic.
+**Service file changes**:
+- Drop `Environment=DB_FILE_NAME=...` — daemon resolves this internally.
+- Drop `Environment=PORT=7274` — daemon reads `preferred_port` from `config.toml`,
+  falling back to the hardcoded default in code. No need for the unit to set it.
 
 ```diff
+-Environment=PORT=7274
 -Environment=DB_FILE_NAME=file:%h/.local/share/obsync/obsync.db
 ```
 
@@ -56,7 +57,8 @@ the unit is redundant and may conflict with the daemon's own logic.
 
 ## Final state (post-Phase 2)
 
-After both changes, the `[Service]` section simplifies to:
+After Phase 2.4 (`DB_FILE_NAME` and `PORT` both dropped — resolved via `env-paths`
+and `config.toml` respectively), the `[Service]` section simplifies to:
 
 ```ini
 [Service]
@@ -74,6 +76,8 @@ StartLimitBurst=5
 NoNewPrivileges=true
 PrivateTmp=true
 ```
+
+Port and DB path are fully owned by the daemon's own config/path resolution.
 
 ---
 

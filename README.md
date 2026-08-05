@@ -63,7 +63,7 @@ The sync pipeline is backed by a SQLite database with a state machine that track
 cd daemon
 pnpm install
 pnpm run db:migrate   # run Drizzle migrations once
-pnpm run start:dev    # starts on http://127.0.0.1:3000
+pnpm run start:dev    # starts on http://127.0.0.1:7274
 ```
 
 ### 2. Build the CLI
@@ -147,7 +147,7 @@ pnpm run start:dev      # watch mode
 pnpm run test:e2e       # integration tests
 ```
 
-Swagger UI is available at `http://127.0.0.1:3000/api` in dev mode.
+Swagger UI is available at `http://127.0.0.1:7274/api` in dev mode.
 
 ### CLI
 

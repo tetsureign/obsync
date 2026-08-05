@@ -33,17 +33,17 @@ services:
     image: ghcr.io/yourusername/obsync-daemon:latest
     container_name: obsync-daemon-demo
     ports:
-      - "3000:3000"
+      - "7274:7274"
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=7274
     volumes:
       # Mount sample vault directory
       - ./demo-vault:/vaults
       # Persistent SQLite database storage
       - obsync-demo-data:/app/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:7274/health"]
       interval: 15s
       timeout: 3s
       retries: 2
@@ -58,5 +58,5 @@ volumes:
 docker compose up -d
 
 # 2. Verify health
-curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:7274/health
 ```

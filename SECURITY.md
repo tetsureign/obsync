@@ -45,10 +45,8 @@ On startup, the daemon generates a random token and writes a lockfile:
 
 ### Port binding
 
-- Local daemon: binds to `127.0.0.1` only (not reachable from other machines on the network).
-- Port is assigned by the OS (port 0) and written to the lockfile — no hardcoded port assumption in the CLI.
-
-> ⚠️ Not yet implemented. Currently binds to a fixed port (default `3000`) with no token auth. See [Current status](#current-status).
+- Local daemon: binds to `127.0.0.1` only on a **fixed default port (`7274`)**, overridable via `PORT` env var.
+- A fixed port was chosen over OS-assigned (port 0) to keep the debug surface small: a port conflict surfaces as a clear daemon startup failure rather than a later mysterious failure in an unrelated application.
 
 ### CORS
 
@@ -84,7 +82,7 @@ The daemon touches the filesystem and runs Git operations. Surfaces to harden (t
 | CORS restricted to `127.0.0.1` | ✅ Implemented |
 | Daemon bound to `127.0.0.1` | ✅ Implemented |
 | Per-session token auth (lockfile + guard) | ❌ Not yet implemented — Phase 2 |
-| OS-assigned ephemeral port (port 0) | ❌ Not yet — fixed port `3000` |
+| Fixed default port (`7274`, overridable via `PORT`) | ✅ Implemented |
 | Lockfile PID validation | ❌ Not yet — Phase 2 |
 | Remote NAS sync via Git remotes (SSH/HTTPS) | ✅ Supported natively by Git |
 | Input validation hardening | ❌ Post-MVP |

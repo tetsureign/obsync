@@ -10,7 +10,7 @@ WorkingDirectory=%h/.local/share/obsync
 
 # Runtime configuration
 Environment=NODE_ENV=production
-Environment=PORT=3000
+Environment=PORT=7274
 Environment=DB_FILE_NAME=file:%h/.local/share/obsync/obsync.db
 
 # Restart policy
