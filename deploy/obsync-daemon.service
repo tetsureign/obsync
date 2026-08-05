@@ -1,0 +1,30 @@
+[Unit]
+Description=obsync daemon – Obsidian vault sync service
+Documentation=https://github.com/tetsureign/obsync
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/obsync-daemon
+WorkingDirectory=%h/.local/share/obsync
+
+# Runtime configuration
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=DB_FILE_NAME=file:%h/.local/share/obsync/obsync.db
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+# Lightweight security hardening
+# PrivateUsers/ProtectHome omitted — daemon needs access to vault dirs under ~/
+# and ~/.ssh/ for Git SSH remotes (see SECURITY.md)
+# PrivateNetwork omitted — daemon needs outbound network for git push/pull
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
