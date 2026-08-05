@@ -9,6 +9,17 @@ import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  // Check if the daemon is already running before Nest bootstrap
+  // That's why I'm not using configService here, because it would require Nest to be bootstrapped first
+  // If this check fails for any reason, bootstrap continues and port binding will catch it.
+  await fetch(`http://127.0.0.1:${process.env.PORT || 7274}/health`)
+    .then(() => {
+      logger.error('Daemon already running');
+      process.exit(1);
+    })
+    .catch(() => {});
+
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
@@ -42,6 +53,7 @@ async function bootstrap() {
   }
   logger.log('Database migrations completed.');
 
+  app.enableShutdownHooks();
   app.enableCors({
     origin: `127.0.0.1`,
   });
