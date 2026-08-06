@@ -1,98 +1,70 @@
 # AGENTS.md
 
-## Purpose
-
-obsync is a self-hosted Obsidian vault synchronization tool built on Git.
-
-It consists of:
-
-- `daemon/`: persistent NestJS/TypeScript service that owns Git operations,
-  synchronization, persistence, queues, and the HTTP API.
-- `cli/`: lightweight Rust client that sends HTTP requests to the daemon and
-  renders responses.
-
-The CLI must remain a presentation/client layer. It must not contain Git or
-synchronization logic.
-
-## Architecture
-
-The main flow is:
-
+obsync is a self-hosted Obsidian vault sync tool. Main flow:
 `CLI → localhost HTTP API → daemon → local vault/Git remote`
 
-## Important invariants
+The CLI is a presentation/client layer only. No Git or sync logic there.
 
-- All Git operations go through `GitService`.
-- A normal sync runs:
+## Invariants
 
-  `pull → stage → commit → push`
+- All Git ops go through `GitService`.
+- Sync order: `pull → stage → commit → push`
+- Sync jobs are serialized per vault via `SyncQueue`.
+- Active ops are `queued`/`running` DB rows.
+- `remote` and `branch` are resolved at runtime, not persisted.
+- Routes use vault names (`/vaults/:name/sync`). Ignore older ID-based docs.
+- Validation: Zod + `nestjs-zod`. Errors: typed `AppError` subclasses.
+- Schema changes require a Drizzle migration.
 
-- Sync jobs are serialized per vault; do not bypass `SyncQueue`.
-- Active sync operations are represented by `queued` or `running` database rows.
-- `remote` and `branch` are resolved from the repository at runtime. They are
-  not persisted in the `vaults` table.
-- API route parameters currently use vault names, for example
-  `/vaults/:name/sync`. Some older documentation refers to vault IDs; follow the
-  current implementation and tests.
-- Daemon input/output validation uses Zod and `nestjs-zod`.
-- Domain failures should use typed `AppError` subclasses so the global exception
-  filter can preserve stable error codes and HTTP statuses.
-- Database schema changes require a Drizzle migration.
+## Key modules
 
-## Planning guidance
+**Daemon** (`daemon/src/`):
 
-For planning tasks:
+| Concern             | Path          |
+| ------------------- | ------------- |
+| Git operations      | `git/`        |
+| Sync orchestration  | `sync/`       |
+| Queue               | `sync-queue/` |
+| Vault CRUD          | `vault/`      |
+| Conflict resolution | `conflict/`   |
+| DB schema           | `database/`   |
 
-1. Start from the current implementation.
-2. Treat `.plans/` as proposed or historical design unless confirmed by code.
-3. Identify the exact modules and files affected.
-4. Call out API, database, queue, or sync-state-machine changes explicitly.
-5. When a daemon API changes, include the corresponding CLI client (unless not implemented yet).
-6. Prefer the smallest change that preserves the existing boundaries.
-7. Do not restate the full architecture; reference the relevant source files or
-   documentation sections instead.
+**CLI** (`cli/src/`):
 
-When documentation and implementation disagree, mention the discrepancy and use
-the implementation/tests as the current source of truth.
+| Concern              | Path          |
+| -------------------- | ------------- |
+| HTTP client + models | `client/`     |
+| Command handlers     | `commands/`   |
+| Output rendering     | `output.rs`   |
+| Daemon lockfile      | `lockfile.rs` |
 
-## Testing strategy
+## Don't read unless asked
 
-- This project prefers integration tests (named "e2e" in the daemon) and CLI-to-daemon end-to-end tests over unit tests. Only write unit tests to check application-level behaviors or utils. Applies for both CLI and daemon
-- Don't add tests while writing codes
+- `ARCHITECTURE.md` — skim only if you need schema or API details
+- `.plans/` — proposals, not source of truth
 
-## Verification commands
+## Planning
 
-Only use them when edits are meaningfully big (e.g. new features, big refactors). On tiny changes, don't bother
+- Start from code, not `.plans/` (those are proposals).
+- Call out API, DB, queue, or state-machine changes explicitly.
+- When daemon API changes, update the CLI client too.
+- Prefer the smallest change that preserves boundaries.
+- If docs and code disagree, follow the code/tests.
 
-Daemon:
+## Testing
 
-```sh
-cd daemon
-pnpm run build
-pnpm run lint
-pnpm run test:e2e
-```
+- Prefer e2e/integration tests over unit tests (both CLI and daemon).
+- Don't add tests while writing code.
 
-Database changes:
-
-```sh
-cd daemon
-pnpm run db:generate
-pnpm run db:migrate
-```
-
-CLI:
+## Verification (only for big changes)
 
 ```sh
-cd cli
-cargo fmt --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo build
+# Daemon
+cd daemon && pnpm run build && pnpm run lint && pnpm run test:e2e
+
+# DB changes
+cd daemon && pnpm run db:generate && pnpm run db:migrate
+
+# CLI
+cd cli && cargo fmt --check && cargo clippy --all-targets --all-features -- -D warnings && cargo build
 ```
-
-## Reference documents
-
-- `README.md`: setup and user-facing commands
-- `ARCHITECTURE.md`: detailed modules, API, schema, and sync lifecycle
-- `SECURITY.md`: threat model and hardening requirements
-- `.plans/`: roadmap and design proposals, not necessarily implemented
