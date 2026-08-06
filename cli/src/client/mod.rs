@@ -22,8 +22,17 @@ pub(crate) struct ApiClient {
 
 impl ApiClient {
     /// Creates a new `ApiClient` instance configured with a connection timeout.
-    pub(crate) fn new(base_url: impl Into<String>) -> Result<Self> {
+    pub(crate) fn new(base_url: impl Into<String>, token: impl Into<String>) -> Result<Self> {
+        let mut headers = reqwest::header::HeaderMap::new();
+        let bearer = format!("Bearer {}", token.into());
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            reqwest::header::HeaderValue::from_str(&bearer)
+                .context("Failed to set authorization header")?,
+        );
+
         let client = Client::builder()
+            .default_headers(headers)
             .timeout(Duration::from_secs(10))
             .build()
             .context("Failed to build HTTP client")?;
