@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { sqliteTable } from 'drizzle-orm/sqlite-core';
+import { snakeCase } from 'drizzle-orm/sqlite-core';
 import * as t from 'drizzle-orm/sqlite-core';
 
 // TODO: extract to a separate .helper file if this gets too big
@@ -13,7 +13,7 @@ const timestamps = {
     .default(sql<number>`(unixepoch())`),
 };
 
-export const vaults = sqliteTable('vaults', {
+export const vaults = snakeCase.table('vaults', {
   id: t
     .text()
     .primaryKey()
@@ -34,7 +34,7 @@ export const vaults = sqliteTable('vaults', {
   ...timestamps,
 });
 
-export const syncOperations = sqliteTable(
+export const syncOperations = snakeCase.table(
   'sync_operations',
   {
     id: t
@@ -67,7 +67,7 @@ export const syncOperations = sqliteTable(
   ],
 );
 
-export const conflictRecords = sqliteTable('conflict_records', {
+export const conflictRecords = snakeCase.table('conflict_records', {
   id: t
     .text()
     .primaryKey()

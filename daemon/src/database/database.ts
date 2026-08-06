@@ -12,7 +12,6 @@ export class Database {
 
     this.db = drizzle({
       connection: { path: dbFileName },
-      casing: 'snake_case',
     });
   }
 
