@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to publish to (must already exist, e.g. v0.2.0)'
+        description: "Release tag to publish to (must already exist, e.g. v0.2.0)"
         required: true
 
 permissions:
@@ -34,9 +34,9 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             use_cross: true
-          # macOS — native runners; macos-13 = Intel, macos-latest = Apple Silicon
+          # macOS — native runners; macos-26-intel = Intel, macos-latest = Apple Silicon
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-26-intel
             use_cross: false
           - target: aarch64-apple-darwin
             os: macos-latest
@@ -101,11 +101,11 @@ jobs:
           path: obsync-${{ matrix.target }}.*
           retention-days: 1
 
-# ---------------------------------------------------------------------------
-# Daemon — Node.js SEA binary (built natively on each runner OS)
-# @yao-pkg/pkg targets "host", so we spin up a runner per platform.
-# Each archive includes the binary + drizzle/ migration files.
-# ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Daemon — Node.js SEA binary (built natively on each runner OS)
+  # @yao-pkg/pkg targets "host", so we spin up a runner per platform.
+  # Each archive includes the binary + drizzle/ migration files.
+  # ---------------------------------------------------------------------------
   build-daemon:
     name: Daemon (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
@@ -117,7 +117,7 @@ jobs:
             platform: linux-x64
           - os: ubuntu-24.04-arm
             platform: linux-arm64
-          - os: macos-13
+          - os: macos-26-intel
             platform: macos-x64
           - os: macos-latest
             platform: macos-arm64
@@ -135,7 +135,7 @@ jobs:
       - name: Setup Node.js 26
         uses: actions/setup-node@v4
         with:
-          node-version: '26'
+          node-version: "26"
           cache: pnpm
           cache-dependency-path: daemon/pnpm-lock.yaml
 
@@ -171,9 +171,9 @@ jobs:
           path: obsync-daemon-${{ matrix.platform }}.*
           retention-days: 1
 
-# ---------------------------------------------------------------------------
-# Publish — collect all artifacts and create a draft GitHub Release
-# ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Publish — collect all artifacts and create a draft GitHub Release
+  # ---------------------------------------------------------------------------
   release:
     name: Publish Release
     needs: [build-cli, build-daemon]
