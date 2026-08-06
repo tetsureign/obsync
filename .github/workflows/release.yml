@@ -1,0 +1,205 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish to (must already exist, e.g. v0.2.0)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+# ---------------------------------------------------------------------------
+# CLI — Rust binary (cross-compiled per target)
+# ---------------------------------------------------------------------------
+jobs:
+  build-cli:
+    name: CLI (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux — use `cross` for zero-fuss cross-compilation
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            use_cross: true
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            use_cross: true
+          # macOS — native runners; macos-13 = Intel, macos-latest = Apple Silicon
+          - target: x86_64-apple-darwin
+            os: macos-13
+            use_cross: false
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            use_cross: false
+          # Windows
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            use_cross: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cli
+
+      - name: Install cross
+        if: matrix.use_cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build CLI
+        working-directory: cli
+        shell: bash
+        run: |
+          if [ "${{ matrix.use_cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+
+      - name: Package CLI (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          BIN="cli/target/${{ matrix.target }}/release/obsync"
+          ARCHIVE="obsync-${{ matrix.target }}.tar.gz"
+          tar -czf "$ARCHIVE" -C "$(dirname "$BIN")" "$(basename "$BIN")"
+          sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+
+      - name: Package CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bin  = "cli/target/${{ matrix.target }}/release/obsync.exe"
+          $archive = "obsync-${{ matrix.target }}.zip"
+          Compress-Archive -Path $bin -DestinationPath $archive
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          "$hash  $archive" | Out-File -Encoding utf8 "$archive.sha256"
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.target }}
+          path: obsync-${{ matrix.target }}.*
+          retention-days: 1
+
+# ---------------------------------------------------------------------------
+# Daemon — Node.js SEA binary (built natively on each runner OS)
+# @yao-pkg/pkg targets "host", so we spin up a runner per platform.
+# Each archive includes the binary + drizzle/ migration files.
+# ---------------------------------------------------------------------------
+  build-daemon:
+    name: Daemon (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+          - os: macos-13
+            platform: macos-x64
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows-x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: pnpm
+          cache-dependency-path: daemon/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: daemon
+        run: pnpm install --frozen-lockfile
+
+      - name: Build daemon SEA binary
+        working-directory: daemon
+        run: pnpm package:sea
+
+      - name: Package daemon (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          ARCHIVE="obsync-daemon-${{ matrix.platform }}.tar.gz"
+          tar -czf "$ARCHIVE" -C daemon/sea obsync-daemon drizzle
+          sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+
+      - name: Package daemon (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = "obsync-daemon-${{ matrix.platform }}.zip"
+          Compress-Archive -Path daemon/sea/obsync-daemon.exe, daemon/sea/drizzle -DestinationPath $archive
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          "$hash  $archive" | Out-File -Encoding utf8 "$archive.sha256"
+
+      - name: Upload daemon artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daemon-${{ matrix.platform }}
+          path: obsync-daemon-${{ matrix.platform }}.*
+          retention-days: 1
+
+# ---------------------------------------------------------------------------
+# Publish — collect all artifacts and create a draft GitHub Release
+# ---------------------------------------------------------------------------
+  release:
+    name: Publish Release
+    needs: [build-cli, build-daemon]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release (draft)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.TAG }}
+          name: ${{ steps.tag.outputs.TAG }}
+          draft: true
+          generate_release_notes: true
+          files: artifacts/*
