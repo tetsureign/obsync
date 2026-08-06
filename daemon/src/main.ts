@@ -37,6 +37,7 @@ async function bootstrap() {
         .setTitle('obsync daemon')
         .setDescription('Go nuts')
         .setVersion('1.0')
+        .addBearerAuth()
         .build(),
     );
 

@@ -22,7 +22,9 @@ import { UpdateVaultCommandDto } from './dto/update-vault-command.dto';
 import { DeleteVaultCommand } from './commands/delete-vault.command';
 import { GetVaultByPathQuery } from './queries/get-vault-by-path.query';
 import { GetVaultByPathQueryDto } from './dto/get-vault-by-path-query.dto';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
+@ApiBearerAuth()
 @Controller('vaults')
 export class VaultController {
   constructor(

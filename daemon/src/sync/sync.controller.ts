@@ -22,7 +22,9 @@ import { StageVaultCommandDto } from './dto/stage-vault-command.dto';
 import { CommitVaultCommand } from './commands/commit-vault.command';
 import { CommitVaultCommandDto } from './dto/commit-vault-command.dto';
 import { PushVaultCommand } from './commands/push-vault.command';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
+@ApiBearerAuth()
 @Controller('vaults')
 export class SyncController {
   constructor(
