@@ -44,14 +44,14 @@ fn is_pid_running(pid: u32) -> bool {
 
         unsafe {
             let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
-            if handle == 0 {
+            if handle == std::ptr::null_mut() {
                 return false;
             }
             let mut exit_code: u32 = 0;
             let alive =
                 windows_sys::Win32::System::Threading::GetExitCodeProcess(handle, &mut exit_code)
                     != 0
-                    && exit_code == STILL_ACTIVE;
+                    && exit_code as i32 == STILL_ACTIVE;
             CloseHandle(handle);
             alive
         }
