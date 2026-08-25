@@ -11,9 +11,9 @@ pub(crate) struct Lockfile {
 
 pub(crate) fn read_lockfile() -> Result<Lockfile> {
     let dirs =
-        ProjectDirs::from("", "", "obsync").context("Could not determine config directory")?;
+        ProjectDirs::from("", "", "obsync").context("Could not determine data directory")?;
 
-    let path = dirs.config_dir().join("daemon.json");
+    let path = dirs.data_dir().join("daemon.json");
 
     let content = fs::read_to_string(&path).with_context(|| {
         format!(

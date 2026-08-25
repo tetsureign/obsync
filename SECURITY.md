@@ -16,7 +16,7 @@ The daemon runs locally and manages Git operations on your vault files. The real
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Rogue website or cross-origin browser request | CORS restricted to `127.0.0.1` + browser Private Network Access (PNA) + **Per-session Bearer token auth** (forces CORS preflight and rejects unauthenticated requests)          |
 | Stray local process calling the daemon        | **Per-session Bearer token auth** _(planned — Phase 2)_                                                                                                                         |
-| Malware on the same user account              | If it can read your lockfile token file (`~/.config/obsync/daemon.json`), it already has direct access to your vault files — the daemon adds no meaningful extra attack surface |
+| Malware on the same user account              | If it can read your lockfile token file (`<app data dir>/obsync/daemon.json`), it already has direct access to your vault files — the daemon adds no meaningful extra attack surface |
 
 Stronger mechanisms (mTLS, Unix Domain Sockets) are intentionally out of scope for the local threat model. The effort is better spent on input validation.
 
@@ -29,7 +29,9 @@ Stronger mechanisms (mTLS, Unix Domain Sockets) are intentionally out of scope f
 On startup, the daemon generates a random token and writes a lockfile:
 
 ```json
-// ~/.config/obsync/daemon.json  (mode 600, owned by current user)
+// <app data dir>/obsync/daemon.json  (mode 600, owned by current user)
+// e.g. ~/.local/share/obsync/daemon.json (Linux)
+//      ~/Library/Application Support/obsync/daemon.json (macOS)
 {
   "port": 38291,
   "token": "...",

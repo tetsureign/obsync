@@ -61,12 +61,12 @@ export class AppService
       const token = crypto.randomBytes(32).toString('hex');
       this.token = token;
 
-      await mkdir(appPaths.config, {
+      await mkdir(appPaths.data, {
         recursive: true,
       });
 
       await writeFile(
-        appPaths.config + this.lockfileName,
+        appPaths.data + this.lockfileName,
         JSON.stringify({
           token,
           pid: process.pid,
@@ -75,11 +75,11 @@ export class AppService
     } catch (error) {
       if (error instanceof Error) {
         this.logger.error(
-          `Failed to write lockfile at ${appPaths.config + this.lockfileName}: ${error.message}`,
+          `Failed to write lockfile at ${appPaths.data + this.lockfileName}: ${error.message}`,
         );
       } else {
         this.logger.error(
-          `Failed to write lockfile at ${appPaths.config + this.lockfileName}`,
+          `Failed to write lockfile at ${appPaths.data + this.lockfileName}`,
         );
       }
     }
@@ -87,14 +87,14 @@ export class AppService
 
   private async readLockfile() {
     const lockfileContent = await readFile(
-      appPaths.config + this.lockfileName,
+      appPaths.data + this.lockfileName,
       'utf8',
     );
     return LockfileSchema.parse(JSON.parse(lockfileContent));
   }
 
   private async removeLockfile() {
-    return await unlink(appPaths.config + this.lockfileName);
+    return await unlink(appPaths.data + this.lockfileName);
   }
 
   public isValidToken(token: string): boolean {
