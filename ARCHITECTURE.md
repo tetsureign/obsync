@@ -105,7 +105,7 @@ Key methods:
 
 Provides an injectable `Database` class wrapping Drizzle ORM over `node:sqlite`. Runs `PRAGMA journal_mode = WAL` and `PRAGMA foreign_keys = ON` on `configure()`.
 
-> ⚠️ Production database path resolution (via `env-paths`) is not yet implemented. Currently always uses `DB_FILE_NAME` env var (default `./local.db`). Tracked in [ROADMAP.md Phase 2](.plans/ROADMAP.md).
+Database path resolution: defaults to `obsync.db` inside the platform data dir via `env-paths` (`~/.local/share/obsync` on Linux, `~/Library/Application Support/obsync` on macOS). `DB_FILE_NAME` env var is an optional override (used by tests and local dev).
 
 ---
 

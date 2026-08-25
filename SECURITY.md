@@ -12,11 +12,11 @@ obsync is a **local-only tool**. The daemon runs exclusively on your local machi
 
 The daemon runs locally and manages Git operations on your vault files. The realistic threats for a local deployment are:
 
-| Threat | Mitigation |
-| --- | --- |
-| Rogue website or cross-origin browser request | CORS restricted to `127.0.0.1` + browser Private Network Access (PNA) + **Per-session Bearer token auth** (forces CORS preflight and rejects unauthenticated requests) |
-| Stray local process calling the daemon | **Per-session Bearer token auth** _(planned — Phase 2)_ |
-| Malware on the same user account | If it can read your lockfile token file (`~/.config/obsync/daemon.json`), it already has direct access to your vault files — the daemon adds no meaningful extra attack surface |
+| Threat                                        | Mitigation                                                                                                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rogue website or cross-origin browser request | CORS restricted to `127.0.0.1` + browser Private Network Access (PNA) + **Per-session Bearer token auth** (forces CORS preflight and rejects unauthenticated requests)          |
+| Stray local process calling the daemon        | **Per-session Bearer token auth** _(planned — Phase 2)_                                                                                                                         |
+| Malware on the same user account              | If it can read your lockfile token file (`~/.config/obsync/daemon.json`), it already has direct access to your vault files — the daemon adds no meaningful extra attack surface |
 
 Stronger mechanisms (mTLS, Unix Domain Sockets) are intentionally out of scope for the local threat model. The effort is better spent on input validation.
 
@@ -60,7 +60,6 @@ obsync relies on standard Git transport security for remote syncing:
 
 - **SSH Remotes (`git@your-nas:vault.git`)**: Leverages your system's SSH keys (`~/.ssh/id_*`) and SSH config.
 - **HTTPS Remotes**: Uses system Git credential helpers (macOS Keychain, Git Credential Manager, SSH agent).
-- **Self-Hosted NAS**: Run a standard Git server (e.g. Gitea, bare Git repository over SSH) on your NAS. `obsync-daemon` runs locally on your workstation/laptop and syncs to your NAS via native Git commands.
 
 ---
 
@@ -77,15 +76,15 @@ The daemon touches the filesystem and runs Git operations. Surfaces to harden (t
 
 ## Current status
 
-| Control | Status |
-| --- | --- |
-| CORS restricted to `127.0.0.1` | ✅ Implemented |
-| Daemon bound to `127.0.0.1` | ✅ Implemented |
-| Per-session token auth (lockfile + guard) | ❌ Not yet implemented — Phase 2 |
-| Fixed default port (`7274`, overridable via `PORT`) | ✅ Implemented |
-| Lockfile PID validation | ❌ Not yet — Phase 2 |
-| Remote NAS sync via Git remotes (SSH/HTTPS) | ✅ Supported natively by Git |
-| Input validation hardening | ❌ Post-MVP |
+| Control                                             | Status                           |
+| --------------------------------------------------- | -------------------------------- |
+| CORS restricted to `127.0.0.1`                      | ✅ Implemented                   |
+| Daemon bound to `127.0.0.1`                         | ✅ Implemented                   |
+| Per-session token auth (lockfile + guard)           | ❌ Not yet implemented — Phase 2 |
+| Fixed default port (`7274`, overridable via `PORT`) | ✅ Implemented                   |
+| Lockfile PID validation                             | ❌ Not yet — Phase 2             |
+| Remote NAS sync via Git remotes (SSH/HTTPS)         | ✅ Supported natively by Git     |
+| Input validation hardening                          | ❌ Post-MVP                      |
 
 **Until Phase 2 lands, do not expose the daemon port to any network interface.** It is unauthenticated.
 
