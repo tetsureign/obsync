@@ -147,6 +147,13 @@ jobs:
         working-directory: daemon
         run: pnpm package:sea
 
+      # pkg (SEA mode) ad-hoc signs macOS output post-injection; fail loudly
+      # here rather than shipping a binary launchd will refuse to start
+      - name: Verify macOS code signature
+        if: runner.os == 'macOS'
+        working-directory: daemon
+        run: codesign --verify --strict sea/obsyncd
+
       - name: Package daemon (Unix)
         if: runner.os != 'Windows'
         shell: bash
