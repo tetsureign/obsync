@@ -105,7 +105,7 @@ Key methods:
 
 Provides an injectable `Database` class wrapping Drizzle ORM over `node:sqlite`. Runs `PRAGMA journal_mode = WAL` and `PRAGMA foreign_keys = ON` on `configure()`.
 
-Database path resolution: defaults to `obsync.db` inside the platform data dir via `env-paths` (`~/.local/share/obsync` on Linux, `~/Library/Application Support/obsync` on macOS). `DB_FILE_NAME` env var is an optional override (used by tests and local dev).
+Database path resolution: defaults to `obsync.db` inside the platform data dir (`~/.local/share/obsync` on Linux, `~/Library/Application Support/obsync` on macOS). Resolution lives in-repo (`daemon/src/common/utils/app-paths.ts`, mirrored by `cli/src/paths.rs`); `DB_FILE_NAME` env var is an optional override (used by tests and local dev).
 
 ---
 
@@ -249,7 +249,7 @@ The CLI has no Git logic. It sends HTTP requests to the daemon and renders the r
 
 ### Daemon discovery
 
-The daemon listens on a fixed default port (`7274`), overridable via `PORT` env var. The CLI defaults to `http://127.0.0.1:7274`, overridable via `OBSYNC_DAEMON_URL` env var. In Phase 2, the lockfile (`~/.config/obsync/daemon.json`) will carry `{ token, pid }` for authentication and PID validation — the port remains fixed.
+The daemon listens on port `7274` by default, overridable via `PORT` env var. The CLI defaults to `http://127.0.0.1:7274`, overridable via `OBSYNC_DAEMON_URL` env var. On startup the daemon writes a lockfile (`<data dir>/daemon.json`, e.g. `~/.local/share/obsync/daemon.json`) containing `{ token, pid }`: requests authenticate via Bearer token (`TokenGuard`), and the CLI validates the PID is still alive before calling. The lockfile is removed on clean shutdown.
 
 ### Commands
 
@@ -285,6 +285,6 @@ The daemon listens on a fixed default port (`7274`), overridable via `PORT` env 
 | **Config export/import** | TOML vault registry export with interactive path remapping on import.                             |
 | **Cooperative abort**    | `abortRequestedAt` field on sync operations; runner checks between Git phases.                    |
 | **`stash-and-retry`**    | Conflict strategy. `stash()` and `stashPop()` already implemented in `GitService`.                |
-| **Daemon hardening**     | Lockfile, per-session token auth guard, `env-paths` production path resolution. Phase 2.          |
+| **Daemon hardening**     | Lockfile, per-session token auth guard, in-repo production path resolution. Phase 2.          |
 | **Demo Docker Compose**  | Minimal demo `docker-compose.yml` for local container evaluation. Phase 1.                        |
 | **Unix Installer**       | `install.sh` script for Linux/macOS binary placement & systemd/launchd service setup. Phase 5.    |

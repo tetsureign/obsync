@@ -29,27 +29,6 @@ MVP remains remote-backed sync only. Local-only vaults are deferred.
 
 ---
 
-## Current Implementation Snapshot
-
-Already implemented:
-
-- **Schema Refactoring**: Removed `remote` and `branch` columns from `vaults` Drizzle schema (`daemon/src/database/schema.ts`).
-- **Git Helpers**: Added `validateVaultGitRepo`, `inspectExistingVault`, `getEffectiveRemote`, and `getEffectiveBranch` helpers to `GitService`.
-- **Daemon Handlers & DTOs**:
-  - `CreateVaultCommand` / `CreateVaultHandler` validates Git repo & effective remote before DB insert, and automatically infers vault `name` from path directory name if omitted.
-  - `UpdateVaultCommand` / `UpdateVaultHandler` updated to handle vault updates without `remote`/`branch`.
-  - `vaultCoreSchema`, `createVaultCommandSchema`, and response schemas updated.
-  - Sync commands (`commit`, `pull`, `push`, `stage`, etc.) updated to interact with `GitService` without DB-persisted `remote`/`branch`.
-- `VaultModule` imports `GitModule`.
-
-Still incomplete:
-
-- CLI `vault add` implementation updates (`obsync vault add <path> [--name <name>]`) in Rust.
-- Dedicated integration tests for `CreateVaultHandler` / `UpdateVaultHandler` and updating e2e test fixtures for the new schema.
-- `obsync init` command.
-
----
-
 ## Target Behavior
 
 ### `obsync add`

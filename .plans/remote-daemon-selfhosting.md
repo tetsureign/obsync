@@ -6,11 +6,11 @@
 
 ## 1. NAS & Self-Hosting Architecture (Git Remotes)
 
-`obsync-daemon` operates exclusively as a **local service** (`127.0.0.1`) running on your workstation, laptop, or desktop alongside your Obsidian vault files. 
+`obsyncd` operates exclusively as a **local service** (`127.0.0.1`) running on your workstation, laptop, or desktop alongside your Obsidian vault files. 
 
 Rather than running a remote daemon server on a NAS or VPS over a network interface:
 - **Self-Hosting Model**: Users run a standard Git server (e.g. Gitea, GitLab, or a bare SSH Git repository) on their NAS or homelab server.
-- **Synchronization**: `obsync-daemon` executes native Git operations (`git pull`, `git push`) from the local machine directly to the remote Git repository on the NAS over standard SSH or HTTPS transport.
+- **Synchronization**: `obsyncd` executes native Git operations (`git pull`, `git push`) from the local machine directly to the remote Git repository on the NAS over standard SSH or HTTPS transport.
 
 ### Advantages
 1. **Zero Attack Surface**: The daemon never exposes network ports (`0.0.0.0`) to the local LAN or public Internet.
@@ -21,7 +21,7 @@ Rather than running a remote daemon server on a NAS or VPS over a network interf
 
 ## 2. Minimal Demo Docker Compose
 
-To allow developers and users to quickly try out and demo `obsync-daemon` in a containerized environment without manual Node.js installation, a minimal Docker Compose template is provided.
+To allow developers and users to quickly try out and demo `obsyncd` in a containerized environment without manual Node.js installation, a minimal Docker Compose template is provided.
 
 ### `docker-compose.yml`
 
@@ -29,9 +29,9 @@ To allow developers and users to quickly try out and demo `obsync-daemon` in a c
 version: '3.8'
 
 services:
-  obsync-daemon-demo:
-    image: ghcr.io/yourusername/obsync-daemon:latest
-    container_name: obsync-daemon-demo
+  obsyncd-demo:
+    image: ghcr.io/yourusername/obsyncd:latest
+    container_name: obsyncd-demo
     ports:
       - "7274:7274"
     environment:

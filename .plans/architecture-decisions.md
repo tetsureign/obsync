@@ -123,17 +123,6 @@ Kept in the schema. Reserved for **post-MVP auto-sync** when a file system watch
 
 ---
 
-## ✅ SQLite Configuration
-
-WAL mode and foreign keys enabled in `Database.configure()`:
-
-```ts
-this.db.$client.exec("PRAGMA journal_mode = WAL");
-this.db.$client.exec("PRAGMA foreign_keys = ON");
-```
-
----
-
 ## ❌ Testing Strategy (Phase 1 — in progress)
 
 **Integration tests** are the preferred approach.
@@ -177,12 +166,7 @@ Do **not** add resume-specific tests for MVP.
 
 | Item                                                             | Status       |
 | ---------------------------------------------------------------- | ------------ |
-| `hasVaultWork(vaultId)` on `SyncQueue` + stale-abort logic       | ✅           |
-| `StartupReconciliationService` (`OnApplicationBootstrap`)        | ✅           |
-| WAL mode in `Database`                                           | ✅           |
-| `ConflictModule` / runner `MergeConflictError → conflict_record` | ❌ Phase 1.1 |
-| `GetSyncStatusQuery` (active op + last N + runtime)              | ✅           |
-| Integration test suite                                           | ❌ Phase 1.3 |
+Still open: the integration/e2e test suite (see ROADMAP → E2E test suite re-sync).
 
 ### Post-MVP (deferred)
 

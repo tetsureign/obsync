@@ -33,7 +33,6 @@ On startup, the daemon generates a random token and writes a lockfile:
 // e.g. ~/.local/share/obsync/daemon.json (Linux)
 //      ~/Library/Application Support/obsync/daemon.json (macOS)
 {
-  "port": 38291,
   "token": "...",
   "pid": 12345
 }

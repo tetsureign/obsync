@@ -49,15 +49,27 @@ The sync pipeline is backed by a SQLite database with a state machine that track
 
 ## Requirements
 
-- **Node.js** 26+ (for the daemon, using Temporal API)
-- **Rust** + Cargo (to build the CLI)
 - **Git** installed and configured (SSH keys / credential helper set up — obsync uses your system credential store)
+
+For building from source additionally: **Node.js** 26+ (daemon) and **Rust** + Cargo (CLI).
+
+---
+
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/tetsureign/obsync/master/install.sh | sh
+```
+
+Installs the `obsync` CLI and `obsyncd` daemon into `~/.local/bin`, registers a
+background service (systemd user unit on Linux, LaunchAgent on macOS), and is
+safe to re-run to update. See `install.sh --help` for options.
 
 ---
 
 ## Getting started
 
-### 1. Start the daemon
+### 1. Start the daemon (from source)
 
 ```sh
 cd daemon

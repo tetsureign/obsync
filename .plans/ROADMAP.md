@@ -1,171 +1,55 @@
-# obsync — Implementation Roadmap
+# obsync — Roadmap (Remaining Work)
 
-> Derived from cross-referencing all `.plans/` documents against the current codebase.
-> Organizes remaining work into logical phases with clear dependency ordering.
-
----
-
-## Phase 1 — Foundation Fixes & Quickstart Demo
-
-> **Scope**: Small, targeted corrections to already-implemented code & quickstart demo Docker template.
-> **Plans addressed**: `sync-operation-robustness.md`, `architecture-decisions.md`, `vault-git-setup.md`, `remote-daemon-selfhosting.md`
-
-### 1.1 `MergeConflictError → conflict_record` in Runner
-
-<details>
-<summary>Done</summary>
-
-- In `sync-job.runner.ts`, add an explicit `catch` branch before the generic catch:
-  - If `err instanceof MergeConflictError` → insert a `conflict_records` row (vault, files, `strategy = log-and-skip`) → re-throw
-  - The existing `recordFailureBestEffort` then records `MERGE_CONFLICT` on the sync operation
-- Requires injecting a `ConflictRepository` (or inline conflict insert via `SyncRepository`) into the runner
-
-**Actual Implementation**: Record the conflict right inside `recordFailureBestEffort`
-
-</details>
-
-### 1.2 Wire `obsync sync` CLI
-
-<details>
-<summary>Done</summary>
-
-- `Commands::Sync` in `cli/src/main.rs` currently only fetches the vault name and prints it — it never calls the sync API
-- Wire it to `api.sync_vault(vault_id, ...)` with a new `sync_vault()` method on `ApiClient`
-- Print the queued sync operation ID + status
-
-</details>
-
-### 1.3 Update E2E Tests
-
-- `vault.e2e-spec.ts` was written before `vault-git-setup.md` landed. Two categories of fixes:
-
-**Schema drift** (straightforward):
-
-- Remove `remote` and `branch` from all request payloads and response assertions
-- Remove any assertions on `res.body.branch` or `res.body.remote`
-
-**Git validation** (needs mocking):
-
-- `CreateVaultHandler` now calls `GitService.validateVaultGitRepo()` + `getEffectiveRemote()` before inserting — all happy-path create tests currently hit these and fail on fake paths like `/tmp/docs`
-- **Approach**: mock `GitService` at the `Test.createTestingModule()` boundary using `{ provide: GitService, useValue: mockGitService }`. Mock the relevant methods to return success by default; override per-test for error-path coverage.
-- This keeps tests fast, deterministic, and network-free — simulating a remote auth failure or network drop is just `jest.fn().mockRejectedValueOnce(new RemoteAuthError(...))`
-- The `vault/` subdirectory (`test/vault/`) is empty — move vault domain tests there, add coverage for the new Git-validation paths per `vault-git-setup.md`
-
-**Sync robustness tests** (new):
-
-- Add tests per `architecture-decisions.md` checklist: startup abort, stale-abort before queue, in-process busy (no abort), merge conflict → `conflict_record` row created
-
-### 1.4 Demo Docker Setup
-
-- Minimal `docker-compose.yml` for evaluating `obsync-daemon` locally in Docker
-- Volume mount for sample vault and SQLite data directory
-- Health check probe (`GET /health`)
+> Shipped history lives in git log + ARCHITECTURE.md. This file lists only
+> what is still open; deferred ideas are indexed in Post-MVP below.
 
 ---
 
-## Phase 2 — Daemon Hardening
+## Near term
 
-> **Scope**: Full implementation of `daemon-hardening.md`.
-> **Blocks**: Phase 3 (CLI can't reliably discover port or authenticate)
+### E2E test suite re-sync
 
-### 2.1 Port 0 Binding + Lockfile Write
+`vault.e2e-spec.ts` predates TokenGuard and the id→name route migration. Two categories of fixes:
 
-- Change `main.ts` to `await app.listen(0, '127.0.0.1')` (let OS assign port)
-- After listen, read back `app.getHttpServer().address().port`
-- Generate a random bearer token (`crypto.randomBytes(32).toString('hex')`)
-- Write `~/.config/obsync/daemon.json` (mode 600) with `{ port, token, pid }`
-- Use `env-paths` npm package to resolve the platform-correct config dir
+**Auth**:
 
-### 2.2 Auth Guard
+- Every request needs `Authorization: Bearer <token>`; expose the token on
+  `AppService` for tests (or read the lockfile) and send it via a shared
+  supertest helper
+- Sandbox XDG dirs in `test/helpers/test-app.ts` so tests stop clobbering the
+  real `~/.local/share/obsync/daemon.json` lockfile
 
-- NestJS guard on all routes: validate `Authorization: Bearer <token>` against the token written at startup
-- Requests without a valid token → `401 Unauthorized`
-- `/health` exempted (needed for CLI's pre-command probe)
+**Schema drift**:
 
-### 2.3 Lockfile Delete on Shutdown
+- Remove `remote`/`branch` from payloads and assertions
+- `CreateVaultHandler` calls `GitService.validateVaultGitRepo()` +
+  `getEffectiveRemote()` before insert — mock `GitService` at the
+  `Test.createTestingModule()` boundary (`{ provide: GitService, useValue: mockGitService }`),
+  returning success by default, overriding per-test for error paths
+- The `test/vault/` subdirectory is empty — move vault domain tests there,
+  add coverage for the new Git-validation paths per `vault-git-setup.md`
+- PATCH payloads use removed fields (`branch`) → update to current DTO fields
+- Routes are name-based (`/vaults/:name`), not id-based → rework URL building
+  and the UUID-not-found cases
 
-- Implement `OnApplicationShutdown` in the bootstrap service
-- Delete `daemon.json` on clean shutdown
+**Sync robustness tests**: see Testing Checklist in `sync-operation-robustness.md`
 
-### 2.4 `env-paths` Integration + Production DB Path
+### CLI daemon probe refinement
 
-- Replace the current `./local.db` default with platform-correct path resolution:
-  - Linux: `~/.local/share/obsync/obsync.db`
-  - macOS: `~/Library/Application Support/obsync/obsync.db`
-  - Windows: `%LOCALAPPDATA%\obsync\obsync.db`
-- `mkdir -p` the data dir on first run
-- Keep `./local.db` for `NODE_ENV !== 'production'` (existing dev ergonomics stay)
+- Authenticated `GET /health` probe so a hung-but-alive daemon is reported
+  accurately; include the resolved lockfile path in the error text
+- Service-management hints in the error output (`systemctl --user start obsyncd`,
+  `launchctl kickstart ...`)
 
-### 2.5 Scope Note
+### `--batch` / `--no-interactive` flag
 
-- Full `config.toml` daemon settings loading is **post-MVP**
-- For MVP, all daemon settings come from env vars (existing `@nestjs/config` + `.env` is fine)
+- Clean non-TTY output for CI/CD, git hooks, scripting use
 
----
+### Quickstart demo
 
-## Phase 3 — CLI Completion
-
-> **Scope**: All remaining planned CLI commands.
-> **Depends on**: Phase 2 (lockfile-based port + token discovery)
-
-### 3.1 Lockfile-Based Daemon Discovery
-
-- Before every command (except `--help`, `--version`): read `~/.config/obsync/daemon.json`
-- Validate PID is alive (`kill(pid, 0)` equivalent)
-- Use the port and token from the lockfile instead of the hardcoded default
-- `OBSYNC_DAEMON_URL` env var still overrides for remote/scripting use
-
-### 3.2 Auth Header on All Requests
-
-- `ApiClient` reads the token from the lockfile and attaches `Authorization: Bearer <token>` to every request
-
-### 3.3 Remaining Commands
-
-| Command                          | Backend status                                                    |
-| -------------------------------- | ----------------------------------------------------------------- |
-| `obsync vault remove <id\|name>` | `DELETE /vaults/:id` exists; add CLI subcommand                   |
-| `obsync status [<id\|name>]`     | `GET /vaults/:id/status` exists, returns rich data; wire + render |
-| `obsync log [<id\|name>]`        | `GET /vaults/:id/syncs` exists; wire + render history table       |
-| `obsync sync [<id\|name>]`       | Stubbed — complete wiring (Phase 1.2)                             |
-
-### 3.4 `obsync init` — Post-MVP
-
-- Moved to post-MVP. The `vault add` flow (register an already-prepared Git repo) covers the MVP use case.
-
----
-
-## Phase 4 — NAS Git Remote Specs
-
-> **Scope**: Implementation of `remote-daemon-selfhosting.md`.
-
-### 4.1 NAS Git Remote Documentation
-
-- Document self-hosting via NAS Git remotes (SSH keys, Gitea, bare repos)
-
----
-
-## Phase 5 — Unix Installer & Daemon Gate
-
-> **Scope**: Full implementation of `cli-daemon-onboarding.md`.
-> **Depends on**: Phase 2 (lockfile), Phase 3 (CLI completion)
-
-### 5.1 Hard Daemon Gate & Offline Diagnostics
-
-- Upgrade CLI soft warning (`eprintln!`) to a hard daemon gate
-- If lockfile is missing/stale → print clear diagnostic error to `stderr` with service management commands and exit with non-zero code
-
-### 5.2 Unix Installation Script (`install.sh`)
-
-- Shell script for Linux and macOS
-- Installs `obsync` and `obsync-daemon` binaries into standard path (`~/.local/bin`)
-- Registers and starts native background service:
-  - **Linux**: `systemd` user service (`~/.config/systemd/user/obsync-daemon.service`)
-  - **macOS**: `launchd` plist (`~/Library/LaunchAgents/com.obsync.daemon.plist`)
-
-### 5.3 `--no-interactive` / `--batch` Flag
-
-- Returns non-zero exit code immediately if daemon unreachable
-- For CI/CD, git hooks, scripting use
+- Minimal `docker-compose.yml` evaluating obsyncd locally (see
+  `remote-daemon-selfhosting.md`); volume-mount a sample vault + data dir;
+  health check probe
 
 ---
 
