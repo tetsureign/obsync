@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-sqlite';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
-import { appPaths } from '../common/utils/app-paths';
+import { appDataDir } from '../common/utils/app-paths';
 
 @Injectable()
 export class Database {
@@ -27,8 +27,8 @@ export class Database {
       return configured;
     }
 
-    mkdirSync(appPaths.data, { recursive: true });
-    return join(appPaths.data, 'obsync.db');
+    mkdirSync(appDataDir, { recursive: true });
+    return join(appDataDir, 'obsync.db');
   }
 
   async configure(): Promise<void> {

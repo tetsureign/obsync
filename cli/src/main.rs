@@ -3,6 +3,7 @@ mod client;
 mod commands;
 mod lockfile;
 mod output;
+mod paths;
 mod utils;
 
 use anyhow::{Result, bail};

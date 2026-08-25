@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
-use directories::ProjectDirs;
 use serde::Deserialize;
 use std::fs;
+
+use crate::paths;
 
 #[derive(Deserialize)]
 pub(crate) struct Lockfile {
@@ -10,10 +11,7 @@ pub(crate) struct Lockfile {
 }
 
 pub(crate) fn read_lockfile() -> Result<Lockfile> {
-    let dirs =
-        ProjectDirs::from("", "", "obsync").context("Could not determine data directory")?;
-
-    let path = dirs.data_dir().join("daemon.json");
+    let path = paths::data_dir()?.join("daemon.json");
 
     let content = fs::read_to_string(&path).with_context(|| {
         format!(
