@@ -5,13 +5,15 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/obsync-daemon
+ExecStart=%h/.local/bin/obsyncd
 WorkingDirectory=%h/.local/share/obsync
 
 # Runtime configuration
+# The database path is resolved internally to the platform data dir
+# (~/.local/share/obsync/obsync.db on Linux), matching WorkingDirectory below.
+# DB_FILE_NAME remains available as an optional override.
 Environment=NODE_ENV=production
 Environment=PORT=7274
-Environment=DB_FILE_NAME=file:%h/.local/share/obsync/obsync.db
 
 # Restart policy
 Restart=on-failure

@@ -7,7 +7,7 @@ import {
 import { SyncRepository } from './sync/sync.repository';
 import { AbortingAllSyncOnBootstrapError } from './common/errors/aborting-all-sync-on-bootstrap.error';
 import { getSqliteRowsAffected } from './database/sqlite-result';
-import envPaths from 'env-paths';
+import { appPaths } from './common/utils/app-paths';
 import { writeFile, mkdir, readFile, unlink } from 'fs/promises';
 import crypto from 'crypto';
 import { z } from 'zod';
@@ -24,7 +24,6 @@ export class AppService
   constructor(private syncRepository: SyncRepository) {}
 
   private readonly logger = new Logger(AppService.name);
-  private readonly envPath = envPaths('obsync', { suffix: '' });
   private readonly lockfileName = '/daemon.json';
   private token = '';
 
@@ -62,12 +61,12 @@ export class AppService
       const token = crypto.randomBytes(32).toString('hex');
       this.token = token;
 
-      await mkdir(this.envPath.config, {
+      await mkdir(appPaths.config, {
         recursive: true,
       });
 
       await writeFile(
-        this.envPath.config + this.lockfileName,
+        appPaths.config + this.lockfileName,
         JSON.stringify({
           token,
           pid: process.pid,
@@ -76,11 +75,11 @@ export class AppService
     } catch (error) {
       if (error instanceof Error) {
         this.logger.error(
-          `Failed to write lockfile at ${this.envPath.config + this.lockfileName}: ${error.message}`,
+          `Failed to write lockfile at ${appPaths.config + this.lockfileName}: ${error.message}`,
         );
       } else {
         this.logger.error(
-          `Failed to write lockfile at ${this.envPath.config + this.lockfileName}`,
+          `Failed to write lockfile at ${appPaths.config + this.lockfileName}`,
         );
       }
     }
@@ -88,14 +87,14 @@ export class AppService
 
   private async readLockfile() {
     const lockfileContent = await readFile(
-      this.envPath.config + this.lockfileName,
+      appPaths.config + this.lockfileName,
       'utf8',
     );
     return LockfileSchema.parse(JSON.parse(lockfileContent));
   }
 
   private async removeLockfile() {
-    return await unlink(this.envPath.config + this.lockfileName);
+    return await unlink(appPaths.config + this.lockfileName);
   }
 
   public isValidToken(token: string): boolean {

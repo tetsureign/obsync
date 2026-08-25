@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-sqlite';
+import { mkdirSync } from 'fs';
+import { join } from 'path';
+import { appPaths } from '../common/utils/app-paths';
 
 @Injectable()
 export class Database {
@@ -8,11 +11,24 @@ export class Database {
   private configurePromise?: Promise<void>;
 
   constructor(private readonly configService: ConfigService) {
-    const dbFileName = this.configService.getOrThrow<string>('DB_FILE_NAME');
-
     this.db = drizzle({
-      connection: { path: dbFileName },
+      connection: { path: this.resolveDbFilePath() },
     });
+  }
+
+  /**
+   * DB_FILE_NAME is an optional override; without it the database lives in
+   * the platform-appropriate data dir (e.g. ~/.local/share/obsync on Linux,
+   * ~/Library/Application Support/obsync on macOS).
+   */
+  private resolveDbFilePath(): string {
+    const configured = this.configService.get<string>('DB_FILE_NAME');
+    if (configured) {
+      return configured;
+    }
+
+    mkdirSync(appPaths.data, { recursive: true });
+    return join(appPaths.data, 'obsync.db');
   }
 
   async configure(): Promise<void> {

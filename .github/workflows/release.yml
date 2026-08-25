@@ -151,16 +151,16 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          ARCHIVE="obsync-daemon-${{ matrix.platform }}.tar.gz"
-          tar -czf "$ARCHIVE" -C daemon/sea obsync-daemon drizzle
+          ARCHIVE="obsyncd-${{ matrix.platform }}.tar.gz"
+          tar -czf "$ARCHIVE" -C daemon/sea obsyncd drizzle
           sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
 
       - name: Package daemon (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $archive = "obsync-daemon-${{ matrix.platform }}.zip"
-          Compress-Archive -Path daemon/sea/obsync-daemon.exe, daemon/sea/drizzle -DestinationPath $archive
+          $archive = "obsyncd-${{ matrix.platform }}.zip"
+          Compress-Archive -Path daemon/sea/obsyncd.exe, daemon/sea/drizzle -DestinationPath $archive
           $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
           "$hash  $archive" | Out-File -Encoding utf8 "$archive.sha256"
 
@@ -168,7 +168,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: daemon-${{ matrix.platform }}
-          path: obsync-daemon-${{ matrix.platform }}.*
+          path: obsyncd-${{ matrix.platform }}.*
           retention-days: 1
 
   # ---------------------------------------------------------------------------
