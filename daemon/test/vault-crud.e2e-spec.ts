@@ -57,6 +57,35 @@ describe('Vault CRUD API', () => {
       });
   });
 
+  it('derives the vault name from localPath when omitted', async () => {
+    const repo = await makeRepo('derived-name');
+
+    const res = await authedRequest()
+      .post('/vaults')
+      .send({ localPath: repo.localPath })
+      .expect(201);
+
+    expect(res.body.name).toBe('derived-name');
+
+    await authedRequest().get('/vaults/derived-name').expect(200);
+  });
+
+  it('fetches a vault by path', async () => {
+    const repo = await makeRepo('by-path');
+    await authedRequest()
+      .post('/vaults')
+      .send({ name: 'by-path', localPath: repo.localPath })
+      .expect(201);
+
+    await authedRequest()
+      .get('/vaults/by-path')
+      .query({ localPath: repo.localPath })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.name).toBe('by-path');
+      });
+  });
+
   it('list vaults', async () => {
     const repo = await makeRepo('listed');
     await authedRequest()
@@ -89,6 +118,42 @@ describe('Vault CRUD API', () => {
       .expect((res) => {
         expect(res.body.autoSync).toBe(true);
         expect(res.body.syncInterval).toBe(120);
+      });
+  });
+
+  it('renames a vault', async () => {
+    const repo = await makeRepo('rename-me');
+    await authedRequest()
+      .post('/vaults')
+      .send({ name: 'rename-me', localPath: repo.localPath })
+      .expect(201);
+
+    await authedRequest()
+      .patch('/vaults/rename-me')
+      .send({ name: 'renamed' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.name).toBe('renamed');
+      });
+
+    await authedRequest().get('/vaults/rename-me').expect(404);
+    await authedRequest().get('/vaults/renamed').expect(200);
+  });
+
+  it('moves a vault to another valid repository', async () => {
+    const repoA = await makeRepo('mover');
+    const repoB = await makeRepo('move-target');
+    await authedRequest()
+      .post('/vaults')
+      .send({ name: 'mover', localPath: repoA.localPath })
+      .expect(201);
+
+    await authedRequest()
+      .patch('/vaults/mover')
+      .send({ localPath: repoB.localPath })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.localPath).toBe(repoB.localPath);
       });
   });
 

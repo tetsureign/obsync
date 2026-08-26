@@ -1,5 +1,9 @@
 import { createE2eApp, AuthedRequest } from './helpers/test-app';
-import { createTempVaultRepo, TempVaultRepo } from './helpers/test-repo';
+import {
+  createTempDir,
+  createTempGitRepo,
+  createTempVaultRepo,
+} from './helpers/test-repo';
 
 describe('Vault domain errors', () => {
   const nonexistentVaultName = 'does-not-exist';
@@ -7,13 +11,15 @@ describe('Vault domain errors', () => {
   let authedRequest: AuthedRequest;
   let resetDb: () => Promise<void>;
   let cleanup: () => Promise<void>;
-  const repos: TempVaultRepo[] = [];
+  const fixtures: Array<{ cleanup: () => void }> = [];
 
-  const makeRepo = async (name: string) => {
-    const repo = await createTempVaultRepo(name);
-    repos.push(repo);
-    return repo;
+  const track = <T extends { cleanup: () => void }>(fixture: T) => {
+    fixtures.push(fixture);
+    return fixture;
   };
+
+  const makeRepo = async (name: string) =>
+    track(await createTempVaultRepo(name));
 
   beforeAll(async () => {
     ({ authedRequest, resetDb, cleanup } = await createE2eApp());
@@ -24,7 +30,7 @@ describe('Vault domain errors', () => {
   });
 
   afterAll(async () => {
-    for (const repo of repos) repo.cleanup();
+    for (const fixture of fixtures) fixture.cleanup();
     await cleanup();
   });
 
@@ -151,6 +157,89 @@ describe('Vault domain errors', () => {
         expect(res.body).toEqual(
           expect.objectContaining({
             statusCode: 404,
+          }),
+        );
+      });
+  });
+
+  it('rejects getting a nonexistent vault name', async () => {
+    await authedRequest()
+      .get(`/vaults/${nonexistentVaultName}`)
+      .expect(404)
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            statusCode: 404,
+          }),
+        );
+      });
+  });
+
+  it('rejects by-path lookup for an unregistered path', async () => {
+    await authedRequest()
+      .get('/vaults/by-path')
+      .query({ localPath: '/definitely/not/registered' })
+      .expect(404)
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            statusCode: 404,
+          }),
+        );
+      });
+  });
+
+  it('rejects creating a vault outside a git repository', async () => {
+    const dir = track(createTempDir('not-a-repo'));
+
+    await authedRequest()
+      .post('/vaults')
+      .send({ name: 'not-a-repo', localPath: dir.path })
+      .expect(400)
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            statusCode: 400,
+            code: 'NOT_A_GIT_REPO',
+          }),
+        );
+      });
+  });
+
+  it('rejects creating a vault without an origin remote', async () => {
+    const repo = track(await createTempGitRepo('no-origin'));
+
+    await authedRequest()
+      .post('/vaults')
+      .send({ name: 'no-origin', localPath: repo.path })
+      .expect(404)
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            statusCode: 404,
+            code: 'REMOTE_NOT_FOUND',
+          }),
+        );
+      });
+  });
+
+  it('rejects updating localPath outside a git repository', async () => {
+    const repo = await makeRepo('update-invalid');
+    await authedRequest()
+      .post('/vaults')
+      .send({ name: 'update-invalid', localPath: repo.localPath })
+      .expect(201);
+
+    const dir = track(createTempDir('plain-dir'));
+    await authedRequest()
+      .patch('/vaults/update-invalid')
+      .send({ localPath: dir.path })
+      .expect(400)
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            statusCode: 400,
+            code: 'NOT_A_GIT_REPO',
           }),
         );
       });

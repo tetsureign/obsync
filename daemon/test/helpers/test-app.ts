@@ -27,6 +27,7 @@ export type AuthedRequest = ReturnType<typeof buildAuthedRequest>;
 
 export async function createE2eApp(): Promise<{
   app: INestApplication;
+  db: Database;
   authedRequest: AuthedRequest;
   resetDb: () => Promise<void>;
   cleanup: () => Promise<void>;
@@ -52,6 +53,7 @@ export async function createE2eApp(): Promise<{
 
   return {
     app,
+    db,
     authedRequest,
     resetDb: async () => await clearTestData(db),
     cleanup: async () => {

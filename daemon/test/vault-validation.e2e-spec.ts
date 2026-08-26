@@ -53,6 +53,40 @@ describe('Vault validation', () => {
       });
   });
 
+  it('rejects relative localPath values', async () => {
+    await authedRequest()
+      .post('/vaults')
+      .send({
+        name: 'invalid',
+        localPath: 'relative/path', // Not an absolute path
+      })
+      .expect(400)
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            statusCode: 400,
+          }),
+        );
+      });
+  });
+
+  it('rejects path traversal in localPath', async () => {
+    await authedRequest()
+      .post('/vaults')
+      .send({
+        name: 'invalid',
+        localPath: '/tmp/obsync-e2e/../traversal', // Contains '..'
+      })
+      .expect(400)
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            statusCode: 400,
+          }),
+        );
+      });
+  });
+
   it('rejects invalid primitive types on create', async () => {
     await authedRequest()
       .post('/vaults')
@@ -102,5 +136,18 @@ describe('Vault validation', () => {
       .patch('/vaults/partial-update')
       .send({ conflictStrategy: 'stash-and-retry' })
       .expect(200);
+  });
+
+  it('rejects by-path lookup without localPath query', async () => {
+    await authedRequest()
+      .get('/vaults/by-path')
+      .expect(400)
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            statusCode: 400,
+          }),
+        );
+      });
   });
 });
