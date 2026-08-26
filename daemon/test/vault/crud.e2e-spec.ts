@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { readFileSync } from 'fs';
 import { createE2eApp, AuthedRequest } from '../helpers/test-app';
 import { createTempVaultRepo, TempVaultRepo } from '../helpers/test-repo';
+import { daemonLockfilePath } from '@/common/utils/daemon-lockfile';
 
 describe('Vault CRUD API', () => {
   let authedRequest: AuthedRequest;
@@ -26,6 +28,13 @@ describe('Vault CRUD API', () => {
   afterAll(async () => {
     for (const repo of repos) repo.cleanup();
     await cleanup();
+  });
+
+  it('writes a lockfile with the daemon port after startup', () => {
+    const lockfile = JSON.parse(readFileSync(daemonLockfilePath(), 'utf8'));
+    expect(lockfile.port).toBe(7274);
+    expect(lockfile.pid).toBe(process.pid);
+    expect(typeof lockfile.token).toBe('string');
   });
 
   it('should create a vault', async () => {
