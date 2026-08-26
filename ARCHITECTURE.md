@@ -1,130 +1,96 @@
 # Architecture
 
-obsync is a two-process system: a **daemon** (NestJS/TypeScript) that owns all intelligence, and a thin **CLI** (Rust) that is purely a presentation layer.
+obsync is a two-process system: a persistent **daemon** owns vault access,
+Git, synchronization, and state; a short-lived **CLI** is the user-facing
+HTTP client. This document describes the current implementation and the
+decisions behind its boundaries.
 
----
+## System shape
 
-## Two-process model
-
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
-│  CLI (Rust)                                                 │
-│  clap · reqwest · tokio                                     │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTP / SSE (localhost)
-┌────────────────────────▼────────────────────────────────────┐
-│  Daemon (NestJS)                                            │
-│                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐   │
-│  │ VaultModule │  │  SyncModule │  │  GitModule       │   │
-│  │ CQRS        │  │  CQRS       │  │  simple-git      │   │
-│  │ registry    │  │  pipeline   │  │  wrapper         │   │
-│  └──────┬──────┘  └──────┬──────┘  └──────────────────┘   │
-│         │                │                                  │
-│  ┌──────▼────────────────▼──────────────────────────────┐  │
-│  │  SyncQueue (p-queue, concurrency 1 per vault)        │  │
-│  │  serialises jobs · best-effort retry on final state  │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  SQLite · Drizzle ORM                                │  │
-│  │  vaults · sync_operations · conflict_records         │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+│ CLI (Rust)                                                  │
+│ clap · reqwest · tokio · output rendering                   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ authenticated HTTP on 127.0.0.1
+┌──────────────────────────▼──────────────────────────────────┐
+│ Daemon (NestJS / TypeScript)                                │
+│  HTTP API · CQRS · per-vault queue · sync state              │
+│  GitService · SQLite/Drizzle · conflict records             │
+└───────────────┬──────────────────────┬──────────────────────┘
+                │                      │
+          local vault files       Git remote
+                                      │
+                              SSH / HTTPS via host Git
 ```
 
-### Why two processes?
+The daemon is the only component that performs filesystem and Git operations.
+The CLI reads the daemon lockfile, authenticates requests, and renders the
+responses. Remote synchronization is still ordinary Git traffic; the daemon
+itself is not a remote service.
 
-The daemon is a persistent background service with in-memory state (sync queue, per-vault queues). The CLI is ephemeral — each invocation is a single HTTP call. This separation means:
+## Request and sync flow
 
-- The sync queue is always running, even when the terminal is closed.
-- The CLI can be a thin Rust binary with no runtime overhead.
-- Multiple CLI invocations (or other HTTP clients) can query the daemon simultaneously.
-
----
-
-## Daemon
-
-### Tech stack
-
-| Layer          | Tool                                                 |
-| -------------- | ---------------------------------------------------- |
-| Framework      | NestJS (TypeScript)                                  |
-| Git operations | `simple-git`                                         |
-| Job queue      | `p-queue` (in-memory, per vault, concurrency 1)      |
-| ORM            | Drizzle ORM                                          |
-| Database       | SQLite (`node:sqlite` via `drizzle-orm/node-sqlite`) |
-| Validation     | Zod + `nestjs-zod`                                   |
-| Pattern        | CQRS (`@nestjs/cqrs`) — CommandBus + QueryBus        |
-
-### Modules
-
-#### `VaultModule`
-
-Owns the vault registry. Vaults are registered by local path — `remote` and `branch` are **not** persisted; they are resolved dynamically from the repository's `.git/config` at sync time via `GitService`.
-
-Commands: `CreateVaultCommand`, `UpdateVaultCommand`, `DeleteVaultCommand`
-Queries: `GetVaultQuery`, `ListVaultsQuery`, `GetVaultByPathQuery`
-
-Key invariant: `CreateVaultHandler` validates that the path is a real Git repo with a configured remote before inserting. If not, it returns a domain error prompting the user to run `obsync init`.
-
-#### `SyncModule`
-
-Owns the sync pipeline. Sync is always a full convergence from the current vault state — not a resume of a previous step.
-
-Commands: `SyncVaultCommand`, `AbortSyncCommand`, `PullVaultCommand`, `StageVaultCommand`, `CommitVaultCommand`, `PushVaultCommand`
-Queries: `GetSyncStatusQuery`, `GetSyncHistoryQuery`, `GetGitStatusQuery`, `GetGitDiffQuery`
-
-The `SyncJobRunner` executes: `pull → stage → commit → push`. Each step is atomically recorded in the DB before Git work begins — if the step cannot be persisted, the runner stops before touching the filesystem.
-
-#### `GitModule`
-
-Wraps `simple-git` with typed domain errors. All Git operations go through `GitService` — the rest of the codebase never calls `simple-git` directly.
-
-Key helpers:
-
-- `validateVaultGitRepo(path)` — checks `git.checkIsRepo()`
-- `getEffectiveRemote(path, alias?)` — resolves the configured remote URL at runtime
-- `getEffectiveBranch(path)` — resolves the current checked-out branch at runtime
-- `inspectExistingVault(path)` — returns remote + branch in one call (used at registration)
-
-Error mapping: `GitError` → `MergeConflictError | RemoteAuthError | NetworkError | DirtyWorkingTreeError | NotAGitRepoError | InvalidFilePathsError | GitOperationError`
-
-#### `SyncQueueModule`
-
-A per-vault `p-queue` with `concurrency: 1`. Guarantees syncs never overlap for the same vault. Different vaults can sync independently.
-
-Key methods:
-
-- `addToVaultQueue(vaultId, fn)` — enqueues a job
-- `hasVaultWorks(vaultId)` — `queue.size + queue.pending > 0`
-- `getVaultQueueStatus(vaultId)` — returns size, pending count, running tasks
-- `abortVaultQueue(vaultId)` — clears queued (not in-flight) jobs
-
-#### `DatabaseModule`
-
-Provides an injectable `Database` class wrapping Drizzle ORM over `node:sqlite`. Runs `PRAGMA journal_mode = WAL` and `PRAGMA foreign_keys = ON` on `configure()`.
-
-Database path resolution: defaults to `obsync.db` inside the platform data dir (`~/.local/share/obsync` on Linux, `~/Library/Application Support/obsync` on macOS). Resolution lives in-repo (`daemon/src/common/utils/app-paths.ts`, mirrored by `cli/src/paths.rs`); `DB_FILE_NAME` env var is an optional override (used by tests and local dev).
-
----
-
-## Sync state machine
-
-Every sync creates a `sync_operations` row. States and transitions:
-
-```
-queued → running → success/done
-                → failed/done
-       → aborted/done
+```text
+obsync sync <vault-name>
+        │
+        ├─ read daemon.json and validate the daemon PID
+        ├─ POST /vaults/:name/sync with the session Bearer token
+        ├─ validate the request through Zod
+        ├─ resolve the vault by name and persist a queued operation
+        ├─ enqueue work in the per-vault SyncQueue
+        └─ run GitService: pull → stage → commit → push
 ```
 
-**Active states**: `queued`, `running`  
-**Terminal states**: `success/done`, `failed/done`, `aborted/done`
+The command returns the queued operation. `obsync sync status <vault-name>`
+combines database history with the queue’s in-memory runtime state so a caller
+can see both persisted work and work currently held by the daemon.
 
-The `step` field tracks exactly where the runner is or was: `pull | stage | commit | push | done`.
+## Design decisions
 
-A partial unique index enforces at most one active operation per vault at the DB level:
+### Keep the CLI thin
+
+The CLI is a presentation and transport layer. It does not contain Git or sync
+orchestration logic. That logic belongs in the daemon because the daemon stays
+alive between invocations and can serialize work across multiple clients.
+
+This also gives the CLI a small, predictable responsibility: parse arguments,
+make authenticated HTTP requests, and render domain responses and errors.
+
+### Use names at the API boundary and UUIDs in storage
+
+Vault names are unique and are the stable identifiers users type, so public
+routes use names such as `/vaults/:name/sync`. The database retains UUIDs for
+foreign keys and operation records. Repositories translate between the two at
+the boundary where that is useful.
+
+This keeps the public API readable without coupling user-facing commands to
+database identifiers.
+
+### Resolve Git configuration at runtime
+
+The vault registry stores the local path and sync settings, but not the remote
+URL or current branch. `GitService` reads the configured remote and checked-out
+branch from the repository when it performs an operation.
+
+`.git/config` and `HEAD` therefore remain the source of truth. Changing a
+repository’s remote or branch does not require a second copy of that state in
+the obsync database.
+
+### Treat the vault as a shared mutable resource
+
+The daemon may be one of several actors changing a vault. Obsidian, editors,
+shell Git commands, Git hooks, other local processes, and other obsync clients
+can all modify the working tree. The queue therefore coordinates daemon-owned
+work, but does not pretend to be a global filesystem lock.
+
+### Combine an in-memory queue with a database invariant
+
+`SyncQueue` keeps a `p-queue` for each vault name with concurrency `1`. This
+prevents Git operations for one vault from overlapping while allowing different
+vaults to proceed independently.
+
+The database also has a partial unique index over active operations:
 
 ```sql
 CREATE UNIQUE INDEX sync_operations_one_active_per_vault
@@ -132,159 +98,151 @@ ON sync_operations(vault_id)
 WHERE status IN ('queued', 'running');
 ```
 
-### Startup reconciliation
+The queue provides runtime scheduling; the index protects the invariant when
+two requests race or when the process is restarted. The database is the final
+authority for whether a vault already has active work.
 
-On daemon start, `AppService.onApplicationBootstrap()` aborts all dangling `queued` or `running` operations with error code `DAEMON_INTERRUPTED`. This is cleanup, not recovery — a fresh `obsync sync` creates a new operation from the current vault state.
+### Make the sync pipeline explicit
 
-### Stale operation abort
+Every manual sync follows the same ordered pipeline:
 
-Before enqueuing a new sync, `SyncVaultHandler` checks whether the per-vault queue has in-memory work:
-
-- If **busy** (in-flight) → skip abort, proceed to queue the new job behind it.
-- If **idle** → abort any stale `queued`/`running` DB record, then create a fresh `queued/pull` operation.
-
----
-
-## Database schema
-
-```typescript
-vaults {
-  id            text PK
-  name          text UNIQUE
-  localPath     text UNIQUE
-  isDirty       boolean          // reserved for post-MVP auto-sync
-  autoSync      boolean          // reserved for post-MVP scheduler
-  syncInterval  integer          // seconds, reserved for post-MVP scheduler
-  conflictStrategy  text         // 'log-and-skip' | 'stash-and-retry'
-  lastSyncedAt  timestamp
-  createdAt     timestamp
-  updatedAt     timestamp
-}
-
-sync_operations {
-  id         text PK
-  vaultId    text → vaults.id (CASCADE DELETE)
-  status     text  // queued | running | success | failed | aborted
-  step       text  // pull | stage | commit | push | done
-  error      text  // domain error code, e.g. MERGE_CONFLICT
-  commitSha  text  // null if nothing was committed
-  startedAt  timestamp
-  createdAt  timestamp
-  updatedAt  timestamp
-}
-
-conflict_records {
-  id        text PK
-  vaultId   text → vaults.id (CASCADE DELETE)
-  files     text  // JSON array of conflicted file paths
-  strategy  text  // 'log-and-skip' | 'stash-and-retry'
-  resolved  boolean
-  createdAt timestamp
-  updatedAt timestamp
-}
+```text
+pull → stage → commit → push
 ```
 
-`remote` and `branch` are intentionally absent from `vaults` — Git repository configuration (`.git/config` and `HEAD`) is the sole source of truth, resolved at runtime via `GitService`.
+Before each Git phase, the runner records the current step and running status.
+Successful completion records `success` with step `done` and updates the
+vault’s `lastSyncedAt`. Failures are mapped to typed domain errors and stored
+against the operation when possible.
 
----
+The pipeline is deliberately a fresh convergence attempt, not a resume system.
+On daemon startup, active database operations are marked `aborted` because the
+queue is in memory and cannot safely be reconstructed after a process crash.
 
-## API surface
+## Daemon components
+
+| Component | Responsibility |
+| --- | --- |
+| `VaultModule` | Register, query, update, and delete vaults; validate Git-backed paths at registration. |
+| `SyncModule` | Enqueue syncs, run the pipeline, expose status/history, and coordinate Git actions. |
+| `GitModule` | The sole boundary for `simple-git`; maps Git failures to typed application errors. |
+| `SyncQueueModule` | Maintain one in-memory queue per vault with concurrency `1`. |
+| `ConflictModule` | Persist conflict records produced by failed merge operations. |
+| `DatabaseModule` | Provide SQLite through Drizzle, with WAL mode and foreign keys enabled. |
+
+Nest’s global application layer applies Zod validation, response serialization,
+typed exception handling, and the session-token guard to the HTTP API.
+
+## Persistence and state
 
 ### Vaults
 
-| Method   | Path                         | Description                      |
-| -------- | ---------------------------- | -------------------------------- |
-| `GET`    | `/vaults`                    | List all vaults                  |
-| `POST`   | `/vaults`                    | Register a vault                 |
-| `GET`    | `/vaults/by-path?localPath=` | Look up vault by filesystem path |
-| `GET`    | `/vaults/:id`                | Get vault detail                 |
-| `PATCH`  | `/vaults/:id`                | Update vault config              |
-| `DELETE` | `/vaults/:id`                | Remove vault from registry       |
+Each vault has a unique internal ID, unique name, normalized local path, sync
+settings, conflict strategy, and timestamps. `remote` and `branch` are
+intentionally absent; they are resolved from Git at operation time.
 
-### Sync
+The schema currently stores `autoSync` and `syncInterval` so the configuration
+surface can represent them, but the current daemon only executes manual syncs.
+There is no active scheduler in the current implementation.
 
-| Method | Path                 | Description                                             |
-| ------ | -------------------- | ------------------------------------------------------- |
-| `POST` | `/vaults/:id/sync`   | Enqueue a manual sync                                   |
-| `POST` | `/vaults/:id/abort`  | Abort a pending sync (clears in-memory queue)           |
-| `GET`  | `/vaults/:id/status` | Active operation + recent history + queue runtime state |
-| `GET`  | `/vaults/:id/syncs`  | Full sync history for vault                             |
+### Sync operations
 
-### Low-level Git (debug / advanced)
+Sync operations use these statuses:
 
-| Method | Path                     | Description  |
-| ------ | ------------------------ | ------------ |
-| `GET`  | `/vaults/:id/git-status` | `git status` |
-| `GET`  | `/vaults/:id/git-diff`   | `git diff`   |
-| `POST` | `/vaults/:id/git-pull`   | `git pull`   |
-| `POST` | `/vaults/:id/git-stage`  | `git add`    |
-| `POST` | `/vaults/:id/git-commit` | `git commit` |
-| `POST` | `/vaults/:id/git-push`   | `git push`   |
+```text
+queued → running → success
+                   └→ failed
+queued/running → aborted
+```
+
+The `step` field is one of `pull`, `stage`, `commit`, `push`, or `done`. Active
+rows are `queued` and `running`; terminal rows are `success`, `failed`, and
+`aborted`. A failed or aborted operation retains the step at which it stopped.
+
+Final-state persistence is retried because recording the outcome should not
+turn a completed Git operation into an unreported one merely because SQLite
+was temporarily unavailable.
+
+### Conflicts
+
+Git merge conflicts are converted into `MergeConflictError`. With the current
+`log-and-skip` strategy, the daemon records the vault and conflicted file list
+in `conflict_records` and fails the sync operation. The `stash-and-retry`
+strategy is represented in the schema and CLI configuration, but its retry flow
+and a conflict-resolution API are not complete.
+
+## HTTP API
+
+All API routes are protected by the session-token guard, including `/health`.
+The daemon binds only to `127.0.0.1`; see [SECURITY_MODEL.md](SECURITY_MODEL.md)
+for the authentication and lockfile rationale.
+
+### Vaults
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/vaults` | List registered vaults. |
+| `POST` | `/vaults` | Register a Git-backed vault. |
+| `GET` | `/vaults/by-path?localPath=` | Find a vault by local path. |
+| `GET` | `/vaults/:name` | Get vault details. |
+| `PATCH` | `/vaults/:name` | Update vault settings. |
+| `DELETE` | `/vaults/:name` | Remove a vault registration. |
+
+### Sync and Git actions
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/vaults/:name/sync` | Enqueue a full sync. |
+| `POST` | `/vaults/:name/abort` | Abort queued work for a vault. |
+| `GET` | `/vaults/:name/status` | Return active work, recent history, and queue runtime state. |
+| `GET` | `/vaults/:name/syncs` | Return the vault’s sync history. |
+| `GET` | `/vaults/:name/git-status` | Read Git status. |
+| `GET` | `/vaults/:name/git-diff` | Read a Git diff. |
+| `POST` | `/vaults/:name/git-pull` | Run Git pull. |
+| `POST` | `/vaults/:name/git-stage` | Run Git add. |
+| `POST` | `/vaults/:name/git-commit` | Run Git commit. |
+| `POST` | `/vaults/:name/git-push` | Run Git push. |
 
 ### Health
 
-| Method | Path      | Description           |
-| ------ | --------- | --------------------- |
-| `GET`  | `/health` | Daemon liveness probe |
+`GET /health` returns the daemon health response and is also authenticated by
+the global guard. It is used by daemon startup checks and the CLI’s connectivity
+probe.
 
-### Events (SSE)
+The current API does not expose an SSE event stream.
 
-> ⚠️ Not yet implemented. Tracked in [ROADMAP.md Post-MVP](.plans/ROADMAP.md).
+## CLI surface
 
-`GET /events` — SSE stream of typed daemon events (`sync:start`, `sync:done`, `sync:failed`, `conflict`, `vault:dirty`).
+| Command | Purpose |
+| --- | --- |
+| `obsync vault add <path> [options]` | Register a vault. |
+| `obsync vault list` | List registered vaults. |
+| `obsync vault info <name>` | Show vault details. |
+| `obsync vault edit <name> [options]` | Update vault settings. |
+| `obsync vault delete <name>` | Delete a vault registration. |
+| `obsync sync <name> [options]` | Enqueue a manual sync. |
+| `obsync sync status <name>` | Show active and recent sync operations. |
 
----
-
-## CLI
-
-### Tech stack
-
-| Layer            | Tool                  |
-| ---------------- | --------------------- |
-| Argument parsing | `clap` (derive-based) |
-| HTTP client      | `reqwest`             |
-| Async runtime    | `tokio`               |
-
-The CLI has no Git logic. It sends HTTP requests to the daemon and renders the responses.
-
-### Daemon discovery
-
-The daemon listens on port `7274` by default, overridable via `PORT` env var. The CLI defaults to `http://127.0.0.1:7274`, overridable via `OBSYNC_DAEMON_URL` env var. On startup the daemon writes a lockfile (`<data dir>/daemon.json`, e.g. `~/.local/share/obsync/daemon.json`) containing `{ token, pid }`: requests authenticate via Bearer token (`TokenGuard`), and the CLI validates the PID is still alive before calling. The lockfile is removed on clean shutdown.
-
-### Commands
-
-| Command                                   | Status                          |
-| ----------------------------------------- | ------------------------------- |
-| `obsync vault add <path> [--name <name>]` | ✅ Implemented                  |
-| `obsync vault list`                       | ✅ Implemented                  |
-| `obsync sync <vault-id>`                  | 🟡 Stub — enqueue not yet wired |
-| `obsync vault remove <id>`                | ❌ Phase 3                      |
-| `obsync status [<id>]`                    | ❌ Phase 3                      |
-| `obsync log [<id>]`                       | ❌ Phase 3                      |
-| `obsync watch`                            | ❌ Post-MVP (needs SSE)         |
-| `obsync config export/import`             | ❌ Post-MVP                     |
-| `obsync init`                             | ❌ Post-MVP                     |
-
----
+The CLI discovers the daemon from the platform data directory’s
+`daemon.json`. By default it uses the lockfile’s recorded port; `--daemon-url`
+and `OBSYNC_DAEMON_URL` can override the URL while retaining the lockfile
+token. The lockfile lifecycle and platform paths are documented in
+[SECURITY_MODEL.md](SECURITY_MODEL.md).
 
 ## Git credentials
 
-**System credential store only.** obsync has no in-app credential management. The daemon inherits the user's environment — SSH keys, macOS Keychain, `git-credential-helper`, etc. are all managed outside the app.
+obsync does not maintain an application-specific credential store. The daemon
+inherits the host Git environment, including SSH keys, SSH agents, and Git
+credential helpers. This keeps remote authentication in the same place as a
+normal Git workflow and lets Git report authentication failures through the
+daemon’s typed error mapping.
 
-`RemoteAuthError` is surfaced to the user as-is.
+## Current boundaries
 
----
+The current design intentionally leaves these outside the shipped surface:
 
-## Post-MVP features (designed, not yet implemented)
-
-| Feature                  | Notes                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------- |
-| **WatcherModule**        | `chokidar` per-vault file watcher; sets `isDirty` flag. `isDirty` field is already in the schema. |
-| **SchedulerModule**      | Per-vault cron using `@nestjs/schedule`. `autoSync` + `syncInterval` fields already in schema.    |
-| **SSE gateway**          | `@Sse('/events')` endpoint, RxJS `Subject`, typed event bus. Powers `obsync watch`.               |
-| **Config export/import** | TOML vault registry export with interactive path remapping on import.                             |
-| **Cooperative abort**    | `abortRequestedAt` field on sync operations; runner checks between Git phases.                    |
-| **`stash-and-retry`**    | Conflict strategy. `stash()` and `stashPop()` already implemented in `GitService`.                |
-| **Daemon hardening**     | Lockfile, per-session token auth guard, in-repo production path resolution. Phase 2.          |
-| **Demo Docker Compose**  | Minimal demo `docker-compose.yml` for local container evaluation. Phase 1.                        |
-| **Unix Installer**       | `install.sh` script for Linux/macOS binary placement & systemd/launchd service setup. Phase 5.    |
+- remote daemon access; the daemon is local-only;
+- Git logic in the CLI;
+- automatic scheduling, file watching, and SSE events;
+- completed conflict-resolution and stash-and-retry flows;
+- in-app management of Git credentials.

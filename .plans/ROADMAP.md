@@ -45,6 +45,23 @@
 
 - Clean non-TTY output for CI/CD, git hooks, scripting use
 
+### Vault registration: Obsidian ignore nudge
+
+`CreateVaultHandler` already inspects the repo (`validateVaultGitRepo`,
+`getEffectiveRemote`) — extend it to warn when, for an existing `.obsidian/`
+directory:
+
+- `.gitignore` has no workspace entry → hint at ignoring
+  `.obsidian/workspace.json`, `.obsidian/workspace-mobile.json`, `.trash/`
+  (standard practice; see obsidian-git docs / discussion #709 — workspace
+  state is the classic merge-conflict bait)
+- `workspace.json` is **tracked** (committed before being ignored) → warn
+  that it needs `git rm --cached -- <file>`, since every sync carries
+  conflict-bait until it's untracked
+
+Advisory only, matching `vault-git-setup.md`: `add` validates and advises,
+never mutates without asking. Auto-fix belongs to future `obsync init`.
+
 ### Quickstart demo
 
 - Minimal `docker-compose.yml` evaluating obsyncd locally (see
