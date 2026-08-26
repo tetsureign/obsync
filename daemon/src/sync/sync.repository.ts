@@ -252,18 +252,31 @@ export class SyncRepository {
     id: string,
     payload: Pick<SyncOperation, 'commitSha'>,
   ) {
-    return await this.database.db
-      .update(syncOperations)
-      .set({
-        status: 'success',
-        step: 'done',
-        ...payload,
-      })
-      .where(
-        and(eq(syncOperations.id, id), eq(syncOperations.status, 'running')),
-      )
-      .returning()
-      .get();
+    return await this.database.db.transaction((tx) => {
+      const updatedOperation = tx
+        .update(syncOperations)
+        .set({
+          status: 'success',
+          step: 'done',
+          ...payload,
+        })
+        .where(
+          and(eq(syncOperations.id, id), eq(syncOperations.status, 'running')),
+        )
+        .returning()
+        .get();
+
+      if (!updatedOperation) {
+        return undefined;
+      }
+
+      tx.update(vaults)
+        .set({ lastSyncedAt: new Date() })
+        .where(eq(vaults.id, updatedOperation.vaultId))
+        .run();
+
+      return updatedOperation;
+    });
   }
 
   async failSyncOperation(
