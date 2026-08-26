@@ -94,7 +94,13 @@ export class AppService
   }
 
   private async removeLockfile() {
-    return await unlink(appDataDir + this.lockfileName);
+    return await unlink(appDataDir + this.lockfileName).catch((error) => {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    });
+  }
+
+  public get authToken(): string {
+    return this.token;
   }
 
   public isValidToken(token: string): boolean {

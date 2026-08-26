@@ -20,7 +20,9 @@ export async function clearTestData(database: Database) {
 }
 
 export function removeTestDbFile(dbFile: string) {
-  if (existsSync(dbFile)) {
-    rmSync(dbFile, { force: true });
+  for (const file of [dbFile, `${dbFile}-wal`, `${dbFile}-shm`]) {
+    if (existsSync(file)) {
+      rmSync(file, { force: true });
+    }
   }
 }

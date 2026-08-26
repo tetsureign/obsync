@@ -31,8 +31,9 @@ export function resolveAppDataDir(
   }
 }
 
-export const appDataDir = resolveAppDataDir(
-  process.platform,
-  homedir(),
-  process.env,
-);
+const dataDirOverride = process.env.OBSYNC_APP_DATA_DIR;
+
+export const appDataDir =
+  dataDirOverride && isAbsolute(dataDirOverride)
+    ? dataDirOverride
+    : resolveAppDataDir(process.platform, homedir(), process.env);

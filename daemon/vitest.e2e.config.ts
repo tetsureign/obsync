@@ -7,6 +7,7 @@ export default defineConfig({
     globals: true,
     root: './',
     exclude: ['dist/**', 'node_modules/**'],
+    fileParallelism: false,
   },
   plugins: [
     swc.vite({
