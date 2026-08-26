@@ -2,23 +2,32 @@ import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AppService } from './app.service';
 import { ConfigService } from '@nestjs/config';
 import { Database } from './database/database';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 import { Logger } from '@nestjs/common';
+import { liveDaemonHoldsLockfile } from './common/utils/daemon-lockfile';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
-  // Check if the daemon is already running before Nest bootstrap
+  // Check if the daemon is already running before Nest bootstrap.
+  // Two signals: the health endpoint (same-port case) and the lockfile
+  // (catches a live daemon on a swapped port). A stale lockfile from a
+  // crashed daemon is removed here so it cannot block future boots.
   // That's why I'm not using configService here, because it would require Nest to be bootstrapped first
   // If this check fails for any reason, bootstrap continues and port binding will catch it.
-  await fetch(`http://127.0.0.1:${process.env.PORT || 7274}/health`)
-    .then(() => {
-      logger.error('Daemon already running');
-      process.exit(1);
-    })
-    .catch(() => {});
+  const healthProbe = await fetch(
+    `http://127.0.0.1:${process.env.PORT || 7274}/health`,
+  )
+    .then(() => true)
+    .catch(() => false);
+
+  if (healthProbe || (await liveDaemonHoldsLockfile())) {
+    logger.error('Daemon already running');
+    process.exit(1);
+  }
 
   const app = await NestFactory.create(AppModule);
 
@@ -60,6 +69,10 @@ async function bootstrap() {
   });
 
   await app.listen(port, '127.0.0.1');
+
+  // Written only once the server answers: the lockfile's port claim doubles
+  // as a liveness probe target, so it must not exist before listen().
+  await app.get(AppService).writeLockfile();
 }
 
 void bootstrap();

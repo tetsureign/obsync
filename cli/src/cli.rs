@@ -3,13 +3,10 @@ use clap::{Args, Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "obsync", about = "Obsidian vault sync CLI")]
 pub(crate) struct Cli {
-    /// Base URL for the obsync daemon
-    #[arg(
-        long,
-        env = "OBSYNC_DAEMON_URL",
-        default_value = "http://127.0.0.1:7274"
-    )]
-    pub(crate) daemon_url: String,
+    /// Base URL for the obsync daemon. Defaults to the port recorded in the
+    /// daemon lockfile, falling back to http://127.0.0.1:7274.
+    #[arg(long, env = "OBSYNC_DAEMON_URL")]
+    pub(crate) daemon_url: Option<String>,
 
     #[command(subcommand)]
     pub(crate) command: Commands,

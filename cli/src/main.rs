@@ -10,6 +10,8 @@ use anyhow::{Result, bail};
 use clap::Parser;
 use client::ApiClient;
 
+const FALLBACK_DAEMON_URL: &str = "http://127.0.0.1:7274";
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = cli::Cli::parse();
@@ -22,10 +24,16 @@ async fn main() -> Result<()> {
         );
     }
 
-    let api = ApiClient::new(&cli.daemon_url, &lockfile.token)?;
+    let daemon_url = match cli.daemon_url {
+        Some(url) => url,
+        None if lockfile.port > 0 => format!("http://127.0.0.1:{}", lockfile.port),
+        None => FALLBACK_DAEMON_URL.to_string(),
+    };
+
+    let api = ApiClient::new(&daemon_url, &lockfile.token)?;
 
     if !api.health_check().await {
-        eprintln!("⚠️  Could not reach daemon at {}", cli.daemon_url);
+        eprintln!("⚠️  Could not reach daemon at {}", daemon_url);
     }
 
     commands::run(&api, cli.command).await

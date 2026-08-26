@@ -8,6 +8,8 @@ use crate::paths;
 pub(crate) struct Lockfile {
     pub token: String,
     pub pid: u32,
+    #[serde(default)]
+    pub port: u16,
 }
 
 pub(crate) fn read_lockfile() -> Result<Lockfile> {
