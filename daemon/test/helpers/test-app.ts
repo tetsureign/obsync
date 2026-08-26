@@ -41,15 +41,17 @@ export async function createE2eApp(): Promise<{
 
   const app = module.createNestApplication();
   const db = module.get(Database);
+  const appService = module.get(AppService);
 
   await db.configure();
   migrate(db.db, { migrationsFolder: 'drizzle' });
   await app.init();
 
-  const authedRequest = buildAuthedRequest(
-    app,
-    module.get(AppService).authToken,
-  );
+  // Production writes the lockfile (and mints the auth token) right after
+  // listen(); tests never listen, so mirror that step explicitly.
+  await appService.writeLockfile();
+
+  const authedRequest = buildAuthedRequest(app, appService.authToken);
 
   return {
     app,
