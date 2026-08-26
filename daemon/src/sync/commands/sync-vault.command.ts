@@ -8,6 +8,8 @@ import { SyncQueue } from '@/sync-queue/sync-queue';
 import { Logger } from '@nestjs/common';
 import { SyncJobRunner } from '../sync-job.runner';
 import { SyncQueueRecordPersistenceError } from '../error/sync-queue-record-persistence.error';
+import { isSqliteUniqueConstraintError } from '@/database/sqlite-error';
+import { SyncOperationStillRunningError } from '../error/sync-still-running.error';
 
 export class SyncVaultCommand {
   constructor(
@@ -37,17 +39,12 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
   }
 
   async execute(command: SyncVaultCommand) {
-    try {
-      // VaultRepository lookup is unavoidable here: we need the resolved
-      // vault object (localPath, conflictStrategy, etc.) to pass into the
-      // job runner, and the vault id to create the sync_operation FK row.
-      const vaultInfo = await this.vaultRepository.findByName(
-        command.vaultName,
-      );
-      if (!vaultInfo) {
-        throw new VaultNotFoundError(command.vaultName);
-      }
+    const vaultInfo = await this.vaultRepository.findByName(command.vaultName);
+    if (!vaultInfo) {
+      throw new VaultNotFoundError(command.vaultName);
+    }
 
+    try {
       await this.abortStaleSyncOperation(command.vaultName);
 
       const queuedOperation = await this.repository.queueSyncOperation(
@@ -71,11 +68,16 @@ export class SyncVaultHandler implements ICommandHandler<SyncVaultCommand> {
         });
       return queuedOperation;
     } catch (error) {
+      const cause = error instanceof DrizzleQueryError ? error.cause : error;
+
+      // Two active ops per vault violate the partial unique index — the
+      // second request lost a race against an in-flight sync.
+      if (isSqliteUniqueConstraintError(cause)) {
+        throw new SyncOperationStillRunningError(vaultInfo.id, 'sync');
+      }
+
       if (error instanceof DrizzleQueryError) {
-        throw new SyncQueueRecordPersistenceError(
-          command.vaultName,
-          error.cause,
-        );
+        throw new SyncQueueRecordPersistenceError(command.vaultName, cause);
       }
       throw error;
     }
