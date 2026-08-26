@@ -1,9 +1,9 @@
-import { createE2eApp, AuthedRequest } from './helpers/test-app';
+import { createE2eApp, AuthedRequest } from '../helpers/test-app';
 import {
   createTempDir,
   createTempGitRepo,
   createTempVaultRepo,
-} from './helpers/test-repo';
+} from '../helpers/test-repo';
 
 describe('Vault domain errors', () => {
   const nonexistentVaultName = 'does-not-exist';

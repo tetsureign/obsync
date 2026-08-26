@@ -1,5 +1,5 @@
-import { createE2eApp, AuthedRequest } from './helpers/test-app';
-import { createTempVaultRepo, TempVaultRepo } from './helpers/test-repo';
+import { createE2eApp, AuthedRequest } from '../helpers/test-app';
+import { createTempVaultRepo, TempVaultRepo } from '../helpers/test-repo';
 
 describe('Vault validation', () => {
   let authedRequest: AuthedRequest;

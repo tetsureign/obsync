@@ -2,7 +2,7 @@
 import { INestApplication } from '@nestjs/common';
 import type { Server } from 'http';
 import request from 'supertest';
-import { createE2eApp } from './helpers/test-app';
+import { createE2eApp } from '../helpers/test-app';
 
 describe('Vault API authorization', () => {
   let app: INestApplication;

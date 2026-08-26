@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { createE2eApp, AuthedRequest } from './helpers/test-app';
-import { createTempVaultRepo, TempVaultRepo } from './helpers/test-repo';
+import { createE2eApp, AuthedRequest } from '../helpers/test-app';
+import { createTempVaultRepo, TempVaultRepo } from '../helpers/test-repo';
 
 describe('Vault CRUD API', () => {
   let authedRequest: AuthedRequest;
