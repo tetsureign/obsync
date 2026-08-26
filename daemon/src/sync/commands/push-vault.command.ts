@@ -35,7 +35,7 @@ export class PushVaultHandler implements ICommandHandler<PushVaultCommand> {
     }
 
     try {
-      return await this.gitService.push(vaultInfo.localPath);
+      await this.gitService.push(vaultInfo.localPath);
     } catch (error) {
       if (error instanceof NetworkError) {
         // TODO: Handle network errors (e.g., retry later, mark vault as offline, etc.)
@@ -43,5 +43,7 @@ export class PushVaultHandler implements ICommandHandler<PushVaultCommand> {
       }
       throw error;
     }
+
+    return true;
   }
 }

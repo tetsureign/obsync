@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { QueryBus } from '@nestjs/cqrs/dist/query-bus';
 import { SyncVaultCommand } from './commands/sync-vault.command';
@@ -12,6 +20,7 @@ import { GetSyncStatusQueryDto } from './dto/get-sync-status-query.dto';
 import { GetSyncHistoryQuery } from './queries/get-sync-history.query';
 import { GetHistoryQueryResponseDto } from './dto/get-history-query-response.dto';
 import { AbortSyncCommand } from './commands/abort-sync.command';
+import { gitActionResultSchema } from './dto/sync.schemas';
 import { GetGitStatusQuery } from './queries/get-git-status.query';
 import { StatusResult } from 'simple-git';
 import { GetGitDiffQuery } from './queries/get-git-diff.query';
@@ -48,6 +57,8 @@ export class SyncController {
   }
 
   @Post(':name/abort')
+  @Header('Content-Type', 'application/json')
+  @ZodSerializerDto(gitActionResultSchema)
   async abortSync(@Param() params: GetVaultParamsDto): Promise<boolean> {
     return await this.commandBus.execute(new AbortSyncCommand(params.name));
   }
@@ -86,11 +97,15 @@ export class SyncController {
   }
 
   @Post(':name/git-pull')
+  @Header('Content-Type', 'application/json')
+  @ZodSerializerDto(gitActionResultSchema)
   async pullVault(@Param() params: GetVaultParamsDto): Promise<boolean> {
     return await this.commandBus.execute(new PullVaultCommand(params.name));
   }
 
   @Post(':name/git-stage')
+  @Header('Content-Type', 'application/json')
+  @ZodSerializerDto(gitActionResultSchema)
   async stageVault(
     @Param() params: GetVaultParamsDto,
     @Body() stageVaultDto: StageVaultCommandDto,
@@ -101,6 +116,8 @@ export class SyncController {
   }
 
   @Post(':name/git-commit')
+  @Header('Content-Type', 'application/json')
+  @ZodSerializerDto(gitActionResultSchema)
   async commitVault(
     @Param() params: GetVaultParamsDto,
     @Body() commitVaultDto: CommitVaultCommandDto,
@@ -111,6 +128,8 @@ export class SyncController {
   }
 
   @Post(':name/git-push')
+  @Header('Content-Type', 'application/json')
+  @ZodSerializerDto(gitActionResultSchema)
   async pushVault(@Param() params: GetVaultParamsDto): Promise<boolean> {
     return await this.commandBus.execute(new PushVaultCommand(params.name));
   }

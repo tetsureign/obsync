@@ -37,9 +37,8 @@ export class CommitVaultHandler implements ICommandHandler<CommitVaultCommand> {
       throw new SyncOperationStillRunningError(command.vaultName, 'commit');
     }
 
-    return await this.gitService.commit(
-      vaultInfo.localPath,
-      command.commitMessage,
-    );
+    await this.gitService.commit(vaultInfo.localPath, command.commitMessage);
+
+    return true;
   }
 }

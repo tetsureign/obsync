@@ -36,6 +36,8 @@ export class StageVaultHandler implements ICommandHandler<StageVaultCommand> {
       throw new SyncOperationStillRunningError(command.vaultName, 'stage');
     }
 
-    return await this.gitService.stage(vaultInfo.localPath, command.filePaths);
+    await this.gitService.stage(vaultInfo.localPath, command.filePaths);
+
+    return true;
   }
 }

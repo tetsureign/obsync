@@ -36,7 +36,7 @@ export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
     }
 
     try {
-      return await this.gitService.pull(vaultInfo.localPath);
+      await this.gitService.pull(vaultInfo.localPath);
     } catch (error) {
       if (error instanceof MergeConflictError) {
         // Call ConflictModule to resolve the conflict and retry pulling
@@ -50,5 +50,7 @@ export class PullVaultHandler implements ICommandHandler<PullVaultCommand> {
       }
       throw error;
     }
+
+    return true;
   }
 }

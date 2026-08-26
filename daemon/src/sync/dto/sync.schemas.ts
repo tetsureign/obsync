@@ -27,3 +27,5 @@ export const stageVaultCommandSchema = syncVaultCommandSchema.pick({
 export const commitVaultCommandSchema = syncVaultCommandSchema.pick({
   commitMessage: true,
 });
+
+export const gitActionResultSchema = z.boolean();
