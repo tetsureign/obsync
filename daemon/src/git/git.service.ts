@@ -153,7 +153,7 @@ export class GitService {
     filePaths?: string[],
   ): Promise<T> {
     try {
-      const git = simpleGit({ baseDir: localPath });
+      const git = simpleGit({ baseDir: localPath }).env('LC_ALL', 'C');
       return await operation(git);
     } catch (error) {
       this.handleGitError(localPath, error, operationName, filePaths);
