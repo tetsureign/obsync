@@ -262,3 +262,21 @@ daemon-rs/
 
 - **Total Estimated Effort**: ~8–10 working days
 - **Risk Level**: **Low**. The domain logic is small (~3.1k LOC), wire contracts are preserved, and the existing Rust CLI acts as an immutable verification harness.
+
+---
+
+## 8. Execution Strategy: Manual vs. AI Delegation
+
+To build genuine Rust muscle memory (ownership, lifetimes, async traits, and compiler error resolution) while balancing mental load alongside a day job, implementation strictly divides core learning milestones from repetitive boilerplate.
+
+### Boundary Matrix
+
+| Component | Write by Hand (Core Learning & Rust Idioms) | Delegate to AI (Boilerplate & Repetitive Scale) |
+|---|---|---|
+| **Git Engine** | • `trait GitService` definition (`#[async_trait]`)<br>• `CliGitService` implementation (`tokio::process::Command`)<br>• Typed error mapping with `thiserror` and porcelain parsing | • Repetitive command wrappers once execution patterns are set<br>• `MockGitService` test fixture boilerplate |
+| **Concurrency & Queue** | • Per-vault concurrency-1 serializer using Tokio primitives (`tokio::sync`, channels, or `Semaphore`)<br>• Task lifecycle, cancellation, and background supervision | • Queue metrics & runtime inspection helper methods |
+| **REPR Endpoints** | • First vertical slice end-to-end (e.g. `POST /vaults`): Loco/Axum state extractors, `validator`, SeaORM insertion, error handling<br>• Bearer token auth middleware & lockfile hook | • Remaining CRUD endpoints (`GET /vaults`, `GET /vaults/:name`, `PATCH /vaults/:name`, `DELETE /vaults/:name`)<br>• Granular Git pass-through endpoints (`git-pull`, `git-stage`, `git-push`, etc.)<br>• DTO structs with repetitive `Serialize`/`Deserialize`/`Validate` derives |
+| **Database & ORM** | • Initial SeaORM setup, configuration, and first migration<br>• Partial unique index on `sync_operations` (`status IN ('queued', 'running')`) | • Remaining entity definitions and standard CRUD migration files |
+| **Sync Engine** | • `SyncJobRunner` core state machine (`pull → stage → commit → push → done`) and error boundaries | • Repetitive step status update boilerplates, event formatting, and payload builders |
+| **Testing** | • First end-to-end integration test setup using Loco's `boot_test` harness with isolated test database | • Porting repetitive test cases across the 65 e2e specs once the test harness patterns are proven |
+
