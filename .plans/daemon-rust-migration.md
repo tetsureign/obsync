@@ -18,9 +18,9 @@
 
 ## 2. Tech Stack Mapping
 
-| Layer | Current (NestJS) | Target (Rust / loco.rs) |
+| Layer | Current (NestJS) | Target (Rust / Axum) |
 |---|---|---|
-| **Framework** | NestJS 11 (Express) | **loco.rs** (Axum) |
+| **Framework** | NestJS 11 (Express) | **Axum** |
 | **API Pattern** | CQRS + Controllers + Handlers | **REPR** (Request-Endpoint-Response) |
 | **Database** | Drizzle ORM (SQLite) | **SeaORM** (SQLite in WAL mode) |
 | **Git Operations** | `simple-git` CLI wrapper | **`trait GitService`** (`CliGitService`) |
@@ -106,9 +106,9 @@ pub struct Response {
 }
 
 pub async fn handler(
-    State(ctx): State<AppContext>,
+    State(ctx): State<AppState>,
     Json(payload): Json<Request>,
-) -> Result<Json<Response>> {
+) -> Result<Json<Response>, AppError> {
     // validation -> logic -> response
 }
 ```
@@ -128,18 +128,21 @@ pub async fn handler(
 
 ```text
 daemon-rs/
-├── config/             # development.yaml, test.yaml, production.yaml
+├── Cargo.toml
 ├── migration/          # SeaORM migrations
 ├── src/
-│   ├── app.rs          # App boot, router mounting, middleware
-│   ├── initializers/   # lockfile.rs (token + PID), openapi.rs
+│   ├── main.rs         # Daemon lifecycle (preflight, DB init, lockfile, graceful shutdown)
+│   ├── state.rs        # AppState (DB pool, GitService, SyncQueue)
+│   ├── error.rs        # AppError enum + IntoResponse (CLI wire format)
+│   ├── auth.rs         # Bearer token middleware / extractor
+│   ├── lifecycle.rs    # Port probe, PID check, daemon.json lockfile handling
 │   ├── models/         # SeaORM entities (vaults, sync_ops, conflicts)
 │   ├── services/
 │   │   ├── git/        # trait GitService, cli.rs, mock.rs
 │   │   ├── sync_queue.rs # Per-vault concurrency-1 serializer
 │   │   └── sync_runner.rs# Step pipeline runner + conflict handling
 │   └── endpoints/      # REPR handlers (health, vaults/, sync/)
-└── tests/              # Loco boot_test integration suites
+└── tests/              # Axum e2e integration suites (using axum-test / reqwest)
 ```
 
 ---
