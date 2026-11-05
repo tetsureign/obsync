@@ -17,7 +17,7 @@ pub(crate) struct ApiErrorPayload {
 #[derive(Debug)]
 pub(crate) enum DaemonError {
     /// Domain error returned by daemon (e.g. code: "VAULT_NOT_FOUND")
-    Api(ApiErrorPayload),
+    Api(Box<ApiErrorPayload>),
     /// Low-level HTTP or network transport failure
     Network(reqwest::Error),
     /// Custom unexpected error

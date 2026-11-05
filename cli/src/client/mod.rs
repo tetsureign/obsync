@@ -63,15 +63,15 @@ impl ApiClient {
             response.json::<T>().await.map_err(DaemonError::Network)
         } else {
             match response.json::<error::ApiErrorPayload>().await {
-                Ok(payload) => Err(DaemonError::Api(payload)),
-                Err(_) => Err(DaemonError::Api(error::ApiErrorPayload {
+                Ok(payload) => Err(DaemonError::Api(Box::new(payload))),
+                Err(_) => Err(DaemonError::Api(Box::new(error::ApiErrorPayload {
                     status_code: status.as_u16(),
                     code: "HTTP_ERROR".to_string(),
                     message: format!("HTTP Error {}", status),
                     timestamp: None,
                     path: None,
                     details: None,
-                })),
+                }))),
             }
         }
     }

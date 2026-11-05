@@ -13,13 +13,14 @@
 #   --version <tag>   Install a specific release (e.g. --version v0.2.0).
 #                     Defaults to the latest published release.
 #   --bin-dir <dir>   Binary install location (default ~/.local/bin)
-#   --data-dir <dir>  Daemon data/migrations location (default ~/.local/share/obsync)
+#   --data-dir <dir>  Daemon data/migrations location (default ~/.local/share/obsync,
+#                     or ~/Library/Application Support/obsync on macOS)
 #   --no-service      Do not register/start the background service
 set -eu
 
 GITHUB="https://github.com/tetsureign/obsync"
 BIN_DIR="${HOME}/.local/bin"
-DATA_DIR="${HOME}/.local/share/obsync"
+DATA_DIR=""
 VERSION=""
 SERVICE=1
 
@@ -43,7 +44,7 @@ while [ $# -gt 0 ]; do
     --no-service)
       SERVICE=0; shift ;;
     -h|--help)
-      sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)
       die "unknown option: $1 (see --help)" ;;
   esac
@@ -54,6 +55,14 @@ done
 
 OS="$(uname -s)"
 ARCH="$(uname -m)"
+
+if [ -z "$DATA_DIR" ]; then
+  if [ "$OS" = "Darwin" ]; then
+    DATA_DIR="${HOME}/Library/Application Support/obsync"
+  else
+    DATA_DIR="${HOME}/.local/share/obsync"
+  fi
+fi
 
 case "${OS}/${ARCH}" in
   Darwin/arm64|Darwin/aarch64)
