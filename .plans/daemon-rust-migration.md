@@ -124,32 +124,43 @@ pub async fn handler(
 
 ---
 
-## 5. Target Crate Layout
+## 5. Target Workspace & Crate Layout
 
 ```text
-daemon-rs/
-├── Cargo.toml
-├── migration/          # SeaORM migrations
-├── src/
-│   ├── main.rs         # Daemon lifecycle (preflight, DB init, lockfile, graceful shutdown)
-│   ├── state.rs        # AppState (DB pool, GitService, SyncQueue)
-│   ├── error.rs        # AppError enum + IntoResponse (CLI wire format)
-│   ├── auth.rs         # Bearer token middleware / extractor
-│   ├── lifecycle.rs    # Port probe, PID check, daemon.json lockfile handling
-│   ├── models/         # SeaORM entities (vaults, sync_ops, conflicts)
-│   ├── services/
-│   │   ├── git/        # trait GitService, cli.rs, mock.rs
-│   │   ├── sync_queue.rs # Per-vault concurrency-1 serializer
-│   │   └── sync_runner.rs# Step pipeline runner + conflict handling
-│   └── endpoints/      # REPR handlers (health, vaults/, sync/)
-└── tests/              # Axum e2e integration suites (using axum-test / reqwest)
+obsync/ (workspace root)
+├── Cargo.toml                  # Workspace manifest (members: ["crates/*", "cli"])
+├── cli/                        # Existing Rust CLI
+├── crates/
+│   ├── obsync-core/            # Shared sync engine & DB logic (portable to mobile)
+│   │   ├── Cargo.toml
+│   │   ├── migration/          # SeaORM migrations
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── models/         # SeaORM entities (vaults, sync_ops, conflicts)
+│   │       ├── error.rs        # Core domain errors
+│   │       └── services/
+│   │           ├── git/        # trait GitService, cli.rs, mock.rs (embedded.rs for mobile)
+│   │           ├── sync_queue.rs # Per-vault concurrency-1 serializer
+│   │           └── sync_runner.rs# Step pipeline runner + conflict handling
+│   │
+│   └── daemon/                 # Desktop HTTP daemon (depends on obsync-core)
+│       ├── Cargo.toml
+│       ├── src/
+│       │   ├── main.rs         # Daemon lifecycle (preflight, DB init, lockfile, graceful shutdown)
+│       │   ├── state.rs        # AppState (DB pool, GitService, SyncQueue from core)
+│       │   ├── error.rs        # AppError enum + IntoResponse (CLI wire format)
+│       │   ├── auth.rs         # Bearer token middleware / extractor
+│       │   ├── lifecycle.rs    # Port probe, PID check, daemon.json lockfile handling
+│       │   └── endpoints/      # REPR handlers (health, vaults/, sync/)
+│       └── tests/              # Axum e2e integration suites (using axum-test / reqwest)
+└── mobile/                     # (Future) Mobile app shell (SwiftUI/Compose or RN)
 ```
 
 ---
 
 ## 6. Future Scope: Mobile (`obsync-core`)
 
-When ready for mobile (Android/iOS):
-- Extract sync engine & DB logic into an embeddable library crate (`obsync-core`).
-- Provide an `EmbeddedGitService` implementation (`gix` or `git2`) since iOS sandbox forbids `fork`/`exec`.
-- Bridge to mobile UI via JSI/FFI TurboModules.
+Because `obsync-core` is isolated into its own crate from day one:
+- **Zero extraction refactor**: Mobile simply imports `obsync-core` directly as an embedded library.
+- **Git on mobile**: Add `EmbeddedGitService` implementing `trait GitService` (`git2` or `gix`) since iOS/Android sandboxes forbid `fork`/`exec`.
+- **Bridge to UI**: Expose high-level `obsync-core` methods via **UniFFI** (for native Swift/Kotlin) or JSI/TurboModules (for React Native). Mobile ViewModels call the Rust engine directly in-memory without running an HTTP server.
