@@ -88,7 +88,7 @@ importers:
         specifier: ^7.8.1
         version: 7.8.2
       simple-git:
-        specifier: ^4.0.0
+        specifier: ^4.0.2
         version: 4.0.2(supports-color@8.1.1)
       zod:
         specifier: ^4.6.6
@@ -6381,6 +6381,10 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.4
 
+  fdir@6.5.0(picomatch@4.0.7):
+    optionalDependencies:
+      picomatch: 4.0.7
+
   figures@6.1.0:
     dependencies:
       is-unicode-supported: 2.1.0
@@ -7671,8 +7675,8 @@ snapshots:
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
+      fdir: 6.5.0(picomatch@4.0.7)
+      picomatch: 4.0.7
 
   tinyrainbow@3.1.0: {}
 
