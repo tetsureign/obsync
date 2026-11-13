@@ -52,14 +52,20 @@ export async function liveDaemonHoldsLockfile(): Promise<boolean> {
     return false;
   }
 
-  if (typeof pid !== 'number' || !isProcessAlive(pid)) {
+  if (
+    typeof pid !== 'number' ||
+    !Number.isInteger(pid) ||
+    pid <= 0 ||
+    !isProcessAlive(pid)
+  ) {
     rmSync(path, { force: true });
     return false;
   }
 
   if (
     typeof port !== 'number' ||
-    Number.isInteger(port) === false ||
+    !Number.isInteger(port) ||
+    port <= 0 ||
     !(await isHealthEndpointAlive(port))
   ) {
     rmSync(path, { force: true });

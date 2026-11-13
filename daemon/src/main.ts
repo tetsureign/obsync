@@ -18,9 +18,9 @@ async function bootstrap() {
   // crashed daemon is removed here so it cannot block future boots.
   // That's why I'm not using configService here, because it would require Nest to be bootstrapped first
   // If this check fails for any reason, bootstrap continues and port binding will catch it.
-  const healthProbe = await fetch(
-    `http://127.0.0.1:${process.env.PORT || 7274}/health`,
-  )
+  const rawPort = Number(process.env.PORT);
+  const probePort = Number.isInteger(rawPort) && rawPort > 0 ? rawPort : 7274;
+  const healthProbe = await fetch(`http://127.0.0.1:${probePort}/health`)
     .then(() => true)
     .catch(() => false);
 
@@ -34,7 +34,9 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const db = app.get(Database);
 
-  const port = configService.get<number>('PORT') || 7274;
+  const configPort = Number(configService.get('PORT'));
+  const port =
+    Number.isInteger(configPort) && configPort > 0 ? configPort : 7274;
   const nodeEnv = configService.get<string>('NODE_ENV');
 
   // Dev-only Setups

@@ -18,8 +18,8 @@ const DEFAULT_PORT = 7274;
 
 const LockfileSchema = z.object({
   token: z.string(),
-  pid: z.number(),
-  port: z.number(),
+  pid: z.number().int().positive(),
+  port: z.number().int().positive(),
 });
 
 @Injectable()
@@ -67,7 +67,9 @@ export class AppService
       const token = crypto.randomBytes(32).toString('hex');
       this.token = token;
 
-      const port = this.configService.get<number>('PORT') ?? DEFAULT_PORT;
+      const rawPort = Number(this.configService.get('PORT'));
+      const port =
+        Number.isInteger(rawPort) && rawPort > 0 ? rawPort : DEFAULT_PORT;
 
       await mkdir(appDataDir, {
         recursive: true,
