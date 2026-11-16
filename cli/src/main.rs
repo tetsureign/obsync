@@ -1,14 +1,13 @@
 mod cli;
 mod client;
 mod commands;
-mod lockfile;
 mod output;
-mod paths;
 mod utils;
 
 use anyhow::{Result, bail};
 use clap::Parser;
 use client::ApiClient;
+use obsync_common::lockfile;
 
 const FALLBACK_DAEMON_URL: &str = "http://127.0.0.1:7274";
 
