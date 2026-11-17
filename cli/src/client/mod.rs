@@ -1,18 +1,16 @@
 mod error;
-mod models;
 
 pub(crate) use error::DaemonError;
-pub(crate) use models::{
-    CompletedSyncOperation, CreateVaultRequest, EditVaultRequest, SyncOperation,
-    SyncStatusResponse, Vault,
+pub(crate) use obsync_common::dto::vault::{CreateVaultRequest, EditVaultRequest, Vault};
+
+pub(crate) use obsync_common::dto::sync::{
+    CompletedSyncOperation, SyncOperation, SyncStatusResponse, SyncVaultBody,
 };
 
 use anyhow::{Context, Result};
 use reqwest::{Client, Response};
 use serde::de::DeserializeOwned;
 use std::time::Duration;
-
-use models::SyncVaultBody;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ApiClient {
